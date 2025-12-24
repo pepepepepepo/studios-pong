@@ -1,0 +1,482 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+    <title>Studios Pong - AI Personas</title>
+    <style>
+        :root {
+            --persona-color: #7B68EE;
+        }
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--persona-color);
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            color: var(--persona-color);
+        }
+        .persona-selector {
+            margin-bottom: 20px;
+        }
+        .persona-selector label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .persona-selector select {
+            width: 100%;
+            padding: 8px;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--persona-color);
+            border-radius: 4px;
+        }
+        .chat-container {
+            border: 2px solid var(--persona-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 400px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: var(--vscode-editor-background);
+        }
+        .message {
+            margin-bottom: 16px;
+            padding: 12px;
+            border-radius: 6px;
+        }
+        .message.user {
+            background: var(--vscode-inputOption-activeBackground);
+            text-align: right;
+        }
+        .message.persona {
+            background: var(--vscode-textBlockQuote-background);
+            border-left: 4px solid var(--persona-color);
+        }
+        .message .sender {
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: var(--persona-color);
+        }
+        .message .text {
+            line-height: 1.5;
+        }
+        .message .timestamp {
+            font-size: 0.85em;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 4px;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        .input-container input {
+            flex: 1;
+            padding: 10px;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--persona-color);
+            border-radius: 4px;
+        }
+        .input-container button {
+            padding: 10px 20px;
+            background: var(--persona-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .input-container button:hover {
+            opacity: 0.9;
+        }
+        .loading {
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+            padding: 20px;
+        }
+        .error {
+            color: var(--vscode-errorForeground);
+            background: var(--vscode-inputValidation-errorBackground);
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1> Studios Pong</h1>
+            <p>Your AI Persona Team - 74 Personalities with Local Memory</p>
+        </div>
+
+        <div class="persona-selector">
+            <label for="personaSelect">Select AI Persona:</label>
+            <select id="personaSelect">
+                <option value="">Loading personas...</option>
+            </select>
+        </div>
+
+        <div id="errorContainer"></div>
+
+        <div class="memory-controls" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <div id="memoryStats" style="color: var(--vscode-descriptionForeground); font-size: 0.9em;">
+                💾 Memory: Loading...
+            </div>
+            <div>
+                <button id="searchMemoryBtn" style="padding: 6px 12px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">🔍 Search</button>
+                <button id="exportMemoryBtn" style="padding: 6px 12px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">📥 Export</button>
+                <button id="importMemoryBtn" style="padding: 6px 12px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">📤 Import</button>
+                <button id="clearMemoryBtn" style="padding: 6px 12px; background: var(--vscode-errorForeground); color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Clear</button>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="loading">Initializing Studios Pong...</div>
+        </div>
+
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type your message..." />
+            <button id="sendButton">Send</button>
+        </div>
+        
+        <input type="file" id="importFileInput" accept=".json" style="display: none;">
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        let currentPersonaId = null;
+        let chatHistory = {}; // { personaId: [messages] }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            loadChatHistory();
+            updateMemoryStats();
+            vscode.postMessage({ command: 'getPersonas' });
+        });
+
+        // Handle messages from extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+
+            switch (message.command) {
+                case 'personasLoaded':
+                    loadPersonas(message.personas);
+                    break;
+                case 'messageReceived':
+                    displayMessage(message.persona, message.message, message.timestamp, false);
+                    break;
+                case 'error':
+                    displayError(message.message);
+                    break;
+            }
+        });
+
+        // Load personas into dropdown
+        function loadPersonas(personas) {
+            const select = document.getElementById('personaSelect');
+            select.innerHTML = '<option value="">-- Select a Persona --</option>';
+            
+            // Store personas data for later use
+            window.personasData = {};
+            
+            personas.forEach(persona => {
+                // Store full persona data
+                window.personasData[persona.id] = persona;
+                
+                const option = document.createElement('option');
+                option.value = persona.id;
+                const emoji = persona.emoji || '🤖';
+                option.textContent = `${emoji} ${persona.name} (${persona.role})`;
+                select.appendChild(option);
+            });
+
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '<div class="loading">Select a persona to start chatting</div>';
+        }
+
+        // Persona selection
+        document.getElementById('personaSelect').addEventListener('change', (e) => {
+            currentPersonaId = e.target.value;
+            const chatContainer = document.getElementById('chatContainer');
+            if (currentPersonaId) {
+                const personaName = e.target.options[e.target.selectedIndex].textContent;
+                
+                // Apply persona color scheme
+                const persona = window.personasData[currentPersonaId];
+                if (persona && persona.color_scheme) {
+                    document.documentElement.style.setProperty('--persona-color', persona.color_scheme);
+                } else {
+                    document.documentElement.style.setProperty('--persona-color', '#7B68EE');
+                }
+                
+                // Load existing chat history for this persona
+                restoreChatHistory(currentPersonaId);
+            }
+        });
+
+        // Send message
+        document.getElementById('sendButton').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+
+            if (!text || !currentPersonaId) {
+                if (!currentPersonaId) {
+                    displayError('Please select a persona first');
+                }
+                return;
+            }
+
+            // Display user message
+            displayMessage('You', text, new Date().toISOString(), true);
+            input.value = '';
+
+            // Get conversation history for context
+            const history = chatHistory[currentPersonaId] || [];
+            
+            // Send to backend with conversation history for context
+            try {
+                vscode.postMessage({
+                    command: 'sendMessage',
+                    personaId: currentPersonaId,
+                    text: text,
+                    conversationHistory: history.slice(-10) // Send last 10 messages for context
+                });
+            } catch (error) {
+                displayError('Failed to send message: ' + error.message);
+            }
+        }
+
+        function displayMessage(sender, text, timestamp, isUser) {
+            const chatContainer = document.getElementById('chatContainer');
+            
+            // Clear loading message
+            if (chatContainer.querySelector('.loading')) {
+                chatContainer.innerHTML = '';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'persona'}`;
+            messageDiv.innerHTML = `
+                <div class="sender">${sender}</div>
+                <div class="text">${text}</div>
+                <div class="timestamp">${new Date(timestamp).toLocaleTimeString()}</div>
+            `;
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // Save to history
+            if (currentPersonaId) {
+                saveMessageToHistory(currentPersonaId, sender, text, timestamp, isUser);
+            }
+        }
+
+        function displayError(errorMessage) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error">${errorMessage}</div>`;
+        }
+
+        // Chat history persistence functions
+        function loadChatHistory() {
+            const state = vscode.getState();
+            if (state && state.chatHistory) {
+                chatHistory = state.chatHistory;
+            }
+        }
+
+        function updateMemoryStats() {
+            const totalPersonas = Object.keys(chatHistory).length;
+            const totalMessages = Object.values(chatHistory).reduce((sum, msgs) => sum + msgs.length, 0);
+            document.getElementById('memoryStats').textContent = 
+                `💾 Memory: ${totalPersonas} personas, ${totalMessages} messages`;
+        }
+
+        function saveMessageToHistory(personaId, sender, text, timestamp, isUser) {
+            if (!chatHistory[personaId]) {
+                chatHistory[personaId] = [];
+            }
+            
+            chatHistory[personaId].push({
+                sender: sender,
+                text: text,
+                timestamp: timestamp,
+                isUser: isUser
+            });
+
+            // Persist to VS Code state
+            vscode.setState({ chatHistory: chatHistory });
+            updateMemoryStats();
+        }
+
+        function restoreChatHistory(personaId) {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '';
+
+            const history = chatHistory[personaId] || [];
+            
+            if (history.length === 0) {
+                const personaName = document.getElementById('personaSelect').options[document.getElementById('personaSelect').selectedIndex].textContent;
+                chatContainer.innerHTML = `<div class="loading">Chat with ${personaName} started!</div>`;
+            } else {
+                history.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${msg.isUser ? 'user' : 'persona'}`;
+                    messageDiv.innerHTML = `
+                        <div class="sender">${msg.sender}</div>
+                        <div class="text">${msg.text}</div>
+                        <div class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</div>
+                    `;
+                    chatContainer.appendChild(messageDiv);
+                });
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+
+        // Memory Management Functions
+        document.getElementById('searchMemoryBtn').addEventListener('click', () => {
+            const searchTerm = prompt('🔍 Search in conversation history:');
+            if (!searchTerm) return;
+
+            const results = [];
+            Object.keys(chatHistory).forEach(personaId => {
+                const personaName = window.personasData[personaId]?.name || `Persona ${personaId}`;
+                chatHistory[personaId].forEach(msg => {
+                    if (msg.text.toLowerCase().includes(searchTerm.toLowerCase())) {
+                        results.push({
+                            personaId,
+                            personaName,
+                            ...msg
+                        });
+                    }
+                });
+            });
+
+            if (results.length === 0) {
+                displayError(`No results found for "${searchTerm}"`);
+                return;
+            }
+
+            // Display search results
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = `<div class="loading">Search Results for "${searchTerm}" (${results.length} found)</div>`;
+            
+            results.forEach(result => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${result.isUser ? 'user' : 'persona'}`;
+                const highlightedText = result.text.replace(
+                    new RegExp(searchTerm, 'gi'), 
+                    match => `<mark style="background: yellow; color: black;">${match}</mark>`
+                );
+                messageDiv.innerHTML = `
+                    <div class="sender">${result.personaName} - ${result.sender}</div>
+                    <div class="text">${highlightedText}</div>
+                    <div class="timestamp">${new Date(result.timestamp).toLocaleString()}</div>
+                `;
+                chatContainer.appendChild(messageDiv);
+            });
+        });
+
+        document.getElementById('exportMemoryBtn').addEventListener('click', () => {
+            const dataStr = JSON.stringify(chatHistory, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `studios-pong-memory-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            // Show confirmation
+            displayError('✅ Memory exported successfully!');
+            setTimeout(() => {
+                document.getElementById('errorContainer').innerHTML = '';
+            }, 3000);
+        });
+
+        document.getElementById('importMemoryBtn').addEventListener('click', () => {
+            document.getElementById('importFileInput').click();
+        });
+
+        document.getElementById('importFileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const importedHistory = JSON.parse(event.target.result);
+                    
+                    // Merge with existing history
+                    Object.keys(importedHistory).forEach(personaId => {
+                        if (!chatHistory[personaId]) {
+                            chatHistory[personaId] = [];
+                        }
+                        chatHistory[personaId] = [...chatHistory[personaId], ...importedHistory[personaId]];
+                    });
+                    
+                    vscode.setState({ chatHistory: chatHistory });
+                    
+                    // Refresh current view if persona is selected
+                    if (currentPersonaId) {
+                        restoreChatHistory(currentPersonaId);
+                    }
+                    
+                    displayError('✅ Memory imported successfully!');
+                    setTimeout(() => {
+                        document.getElementById('errorContainer').innerHTML = '';
+                    }, 3000);
+                } catch (error) {
+                    displayError('❌ Failed to import memory: Invalid file format');
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset input
+            e.target.value = '';
+        });
+
+        document.getElementById('clearMemoryBtn').addEventListener('click', () => {
+            if (confirm('⚠️ Are you sure you want to clear ALL conversation history? This cannot be undone!')) {
+                chatHistory = {};
+                vscode.setState({ chatHistory: chatHistory });
+                updateMemoryStats();
+                
+                const chatContainer = document.getElementById('chatContainer');
+                chatContainer.innerHTML = '<div class="loading">Memory cleared. Select a persona to start fresh!</div>';
+                
+                displayError('✅ All memory has been cleared');
+                setTimeout(() => {
+                    document.getElementById('errorContainer').innerHTML = '';
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
+
+

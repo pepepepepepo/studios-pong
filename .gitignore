@@ -1,0 +1,8 @@
+out
+dist
+node_modules
+.vscode-test/
+*.vsix
+
+# Legal documents (internal only)
+docs/legal/*.pdf
