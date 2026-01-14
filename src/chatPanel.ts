@@ -7,11 +7,13 @@ export class ChatPanel {
     public static currentPanel: ChatPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
     private readonly _extensionUri: vscode.Uri;
+    private readonly _context: vscode.ExtensionContext;
     private _disposables: vscode.Disposable[] = [];
 
-    private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+    private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
         this._panel = panel;
         this._extensionUri = extensionUri;
+        this._context = context;
 
         // Set the webview's initial html content
         this._update();
@@ -29,6 +31,15 @@ export class ChatPanel {
                     case 'sendMessage':
                         await this.sendMessageToPersona(message.personaId, message.text, message.conversationHistory);
                         break;
+                    case 'saveHistory':
+                        await this.saveChatHistory(message.chatHistory);
+                        break;
+                    case 'loadHistory':
+                        await this.loadChatHistory();
+                        break;
+                    case 'clearHistory':
+                        await this.clearChatHistory();
+                        break;
                 }
             },
             null,
@@ -36,7 +47,7 @@ export class ChatPanel {
         );
     }
 
-    public static createOrShow(extensionUri: vscode.Uri) {
+    public static createOrShow(extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
@@ -59,7 +70,7 @@ export class ChatPanel {
             }
         );
 
-        ChatPanel.currentPanel = new ChatPanel(panel, extensionUri);
+        ChatPanel.currentPanel = new ChatPanel(panel, extensionUri, context);
     }
 
     private async fetchPersonas() {
@@ -118,9 +129,48 @@ export class ChatPanel {
         }
     }
 
+    private async saveChatHistory(chatHistory: any) {
+        try {
+            await this._context.workspaceState.update('studiosPongChatHistory', chatHistory);
+            console.log('Chat history saved to workspace state');
+        } catch (error) {
+            console.error('Failed to save chat history:', error);
+        }
+    }
+
+    private async loadChatHistory() {
+        try {
+            const savedHistory = this._context.workspaceState.get('studiosPongChatHistory');
+            if (savedHistory) {
+                this._panel.webview.postMessage({
+                    command: 'historyLoaded',
+                    chatHistory: savedHistory
+                });
+                console.log('Chat history loaded from workspace state');
+            }
+        } catch (error) {
+            console.error('Failed to load chat history:', error);
+        }
+    }
+
+    private async clearChatHistory() {
+        try {
+            await this._context.workspaceState.update('studiosPongChatHistory', {});
+            this._panel.webview.postMessage({
+                command: 'historyCleared'
+            });
+            console.log('Chat history cleared from workspace state');
+        } catch (error) {
+            console.error('Failed to clear chat history:', error);
+        }
+    }
+
     private _update() {
         const webview = this._panel.webview;
         this._panel.webview.html = this._getHtmlForWebview(webview);
+        
+        // Load saved history after HTML is set
+        setTimeout(() => this.loadChatHistory(), 100);
     }
 
     private _getHtmlForWebview(webview: vscode.Webview): string {

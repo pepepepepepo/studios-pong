@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -118,6 +118,55 @@
             border-radius: 4px;
             margin-bottom: 20px;
         }
+        .favorites-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: var(--vscode-textBlockQuote-background);
+            border-radius: 8px;
+            border: 1px solid var(--persona-color);
+        }
+        .favorites-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .favorites-header h3 {
+            margin: 0;
+            color: var(--persona-color);
+            font-size: 0.95em;
+        }
+        .favorites-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .favorite-btn {
+            padding: 8px 14px;
+            background: var(--persona-color);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .favorite-btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+        .favorite-btn .star {
+            cursor: pointer;
+            font-size: 1.1em;
+        }
+        .favorites-empty {
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -132,6 +181,15 @@
             <select id="personaSelect">
                 <option value="">Loading personas...</option>
             </select>
+        </div>
+
+        <div class="favorites-container" id="favoritesContainer" style="display: none;">
+            <div class="favorites-header">
+                <h3>⭐ Favorite Personas</h3>
+            </div>
+            <div class="favorites-buttons" id="favoritesButtons">
+                <div class="favorites-empty">Click the star (⭐) after selecting a persona to add it to favorites!</div>
+            </div>
         </div>
 
         <div id="errorContainer"></div>
@@ -164,11 +222,17 @@
         const vscode = acquireVsCodeApi();
         let currentPersonaId = null;
         let chatHistory = {}; // { personaId: [messages] }
+        let favoritePersonas = []; // Array of favorite persona IDs
 
         // Initialize
         window.addEventListener('load', () => {
             loadChatHistory();
+            loadFavoritePersonas();
             updateMemoryStats();
+            
+            // Request saved history from Extension workspaceState
+            vscode.postMessage({ command: 'loadHistory' });
+            
             vscode.postMessage({ command: 'getPersonas' });
         });
 
@@ -186,30 +250,81 @@
                 case 'error':
                     displayError(message.message);
                     break;
+                case 'historyLoaded':
+                    // Merge Extension-saved history with WebView state
+                    if (message.chatHistory) {
+                        chatHistory = message.chatHistory;
+                        vscode.setState({ chatHistory: chatHistory });
+                        updateMemoryStats();
+                        console.log('💾 Chat history restored from workspace state');
+                    }
+                    break;
             }
         });
 
         // Load personas into dropdown
         function loadPersonas(personas) {
+            console.log('🔍 Received personas:', personas);
+            console.log('🔍 First persona:', personas[0]);
+            
             const select = document.getElementById('personaSelect');
             select.innerHTML = '<option value="">-- Select a Persona --</option>';
             
             // Store personas data for later use
             window.personasData = {};
             
-            personas.forEach(persona => {
+            personas.forEach((persona, index) => {
+                // Debug: Log first 3 personas
+                if (index < 3) {
+                    console.log(`Persona ${index}:`, {
+                        id: persona.id,
+                        name: persona.name,
+                        emoji: persona.emoji,
+                        role: persona.role
+                    });
+                }
+                
                 // Store full persona data
                 window.personasData[persona.id] = persona;
                 
                 const option = document.createElement('option');
                 option.value = persona.id;
+                
+                // Fallback handling for missing data
                 const emoji = persona.emoji || '🤖';
-                option.textContent = `${emoji} ${persona.name} (${persona.role})`;
+                let name = persona.name;
+                let role = persona.role;
+                
+                // If name is 'Unknown' or empty, try to generate from ID
+                if (!name || name === 'Unknown') {
+                    // Convert ID to readable name (e.g., '118_yuri' -> 'Yuri')
+                    const processedId = persona.id.replace(/^\d+_/, '').replace(/_/g, ' ');
+                    
+                    // If ID is purely numeric or empty after processing, use generic name
+                    if (!processedId || /^\d+$/.test(processedId)) {
+                        name = `Persona ${persona.id}`;
+                    } else {
+                        name = processedId
+                            .split(' ')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                    }
+                }
+                
+                // If role is 'Unknown' or empty, show ID instead
+                if (!role || role === 'Unknown') {
+                    role = `ID: ${persona.id}`;
+                }
+                
+                option.textContent = `${emoji} ${name} (${role})`;
                 select.appendChild(option);
             });
 
             const chatContainer = document.getElementById('chatContainer');
             chatContainer.innerHTML = '<div class="loading">Select a persona to start chatting</div>';
+            
+            // Update favorites UI
+            updateFavoritesUI();
         }
 
         // Persona selection
@@ -229,6 +344,9 @@
                 
                 // Load existing chat history for this persona
                 restoreChatHistory(currentPersonaId);
+                
+                // Update favorites UI to show add/remove star
+                updateFavoritesUI();
             }
         });
 
@@ -301,6 +419,103 @@
             errorContainer.innerHTML = `<div class="error">${errorMessage}</div>`;
         }
 
+        // Favorite Personas Management
+        function loadFavoritePersonas() {
+            const state = vscode.getState();
+            if (state && state.favoritePersonas) {
+                favoritePersonas = state.favoritePersonas;
+            }
+        }
+
+        function saveFavoritePersonas() {
+            const state = vscode.getState() || {};
+            state.favoritePersonas = favoritePersonas;
+            vscode.setState(state);
+        }
+
+        function toggleFavorite(personaId) {
+            const index = favoritePersonas.indexOf(personaId);
+            if (index === -1) {
+                // Add to favorites
+                favoritePersonas.push(personaId);
+            } else {
+                // Remove from favorites
+                favoritePersonas.splice(index, 1);
+            }
+            saveFavoritePersonas();
+            updateFavoritesUI();
+        }
+
+        function updateFavoritesUI() {
+            const container = document.getElementById('favoritesContainer');
+            const buttonsContainer = document.getElementById('favoritesButtons');
+            
+            // Show container if there are favorites OR a persona is selected
+            if (favoritePersonas.length === 0 && !currentPersonaId) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            buttonsContainer.innerHTML = '';
+            
+            // Display favorite persona buttons
+            favoritePersonas.forEach(personaId => {
+                const persona = window.personasData[personaId];
+                if (!persona) return;
+                
+                const button = document.createElement('button');
+                button.className = 'favorite-btn';
+                button.innerHTML = `
+                    <span>${persona.emoji || '🤖'} ${persona.name}</span>
+                    <span class="star" data-persona-id="${personaId}">⭐</span>
+                `;
+                
+                // Click on button (not star) to select persona
+                button.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('star')) {
+                        selectPersona(personaId);
+                    }
+                });
+                
+                // Click on star to remove from favorites
+                const star = button.querySelector('.star');
+                star.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleFavorite(personaId);
+                });
+                
+                buttonsContainer.appendChild(button);
+            });
+            
+            // Add "Add Current" button if a persona is selected and not already in favorites
+            if (currentPersonaId && !favoritePersonas.includes(currentPersonaId)) {
+                const addButton = document.createElement('button');
+                addButton.className = 'favorite-btn';
+                addButton.style.background = 'var(--vscode-button-secondaryBackground)';
+                addButton.style.color = 'var(--vscode-button-secondaryForeground)';
+                addButton.innerHTML = '☆ Add Current';
+                addButton.addEventListener('click', () => {
+                    toggleFavorite(currentPersonaId);
+                });
+                buttonsContainer.appendChild(addButton);
+            }
+            
+            // If no favorites yet, show a helpful message
+            if (favoritePersonas.length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'favorites-empty';
+                emptyMsg.textContent = 'Click "☆ Add Current" to add this persona to favorites!';
+                buttonsContainer.appendChild(emptyMsg);
+            }
+        }
+
+        function selectPersona(personaId) {
+            const select = document.getElementById('personaSelect');
+            select.value = personaId;
+            select.dispatchEvent(new Event('change'));
+        }
+
         // Chat history persistence functions
         function loadChatHistory() {
             const state = vscode.getState();
@@ -328,8 +543,15 @@
                 isUser: isUser
             });
 
-            // Persist to VS Code state
+            // Persist to VS Code state (WebView level)
             vscode.setState({ chatHistory: chatHistory });
+            
+            // Also save to Extension workspaceState (persistent across VS Code restarts)
+            vscode.postMessage({
+                command: 'saveHistory',
+                chatHistory: chatHistory
+            });
+            
             updateMemoryStats();
         }
 
@@ -464,6 +686,10 @@
             if (confirm('⚠️ Are you sure you want to clear ALL conversation history? This cannot be undone!')) {
                 chatHistory = {};
                 vscode.setState({ chatHistory: chatHistory });
+                
+                // Also clear Extension workspaceState
+                vscode.postMessage({ command: 'clearHistory' });
+                
                 updateMemoryStats();
                 
                 const chatContainer = document.getElementById('chatContainer');

@@ -6,3 +6,12 @@ node_modules
 
 # Legal documents (internal only)
 docs/legal/*.pdf
+docs/legal/CERTIFICATES.md
+docs/legal/REVENTLOV_PROJECT.md
+
+# Internal handover documents (session-specific)
+docs/handovers/HANDOVER_*.md
+docs/handovers/PERSONA_MEMORY_UPDATE_*.md
+
+# Temporary files
+temp_*.yaml

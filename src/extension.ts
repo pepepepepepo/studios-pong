@@ -8,11 +8,12 @@ import { ChatPanel } from './chatPanel';
  * Extension activation
  */
 export function activate(context: vscode.ExtensionContext) {
+    console.log('Studios Pong: activate() called!');
     console.log('Studios Pong Extension is now active!');
 
     // Register the main command to open AI Persona Chat
     const openChatCommand = vscode.commands.registerCommand('studios-pong.openChat', () => {
-        ChatPanel.createOrShow(context.extensionUri);
+        ChatPanel.createOrShow(context.extensionUri, context);
     });
 
     context.subscriptions.push(openChatCommand);

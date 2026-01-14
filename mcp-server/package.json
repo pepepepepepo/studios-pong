@@ -1,0 +1,24 @@
+{
+  "name": "@studios-pong/mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for Studios Pong - 74 AI personas",
+  "type": "module",
+  "bin": {
+    "studios-pong-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepare": "npm run build"
+  },
+  "keywords": ["mcp", "studios-pong", "ai", "personas"],
+  "author": "Studios Pong",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
