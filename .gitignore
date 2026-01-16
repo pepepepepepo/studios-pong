@@ -9,9 +9,15 @@ docs/legal/*.pdf
 docs/legal/CERTIFICATES.md
 docs/legal/REVENTLOV_PROJECT.md
 
+# Business plan (internal only)
+docs/BUSINESS_PLAN_DRAFT.md
+
 # Internal handover documents (session-specific)
 docs/handovers/HANDOVER_*.md
 docs/handovers/PERSONA_MEMORY_UPDATE_*.md
+
+# Test files with conversation content
+test_*.py
 
 # Temporary files
 temp_*.yaml
