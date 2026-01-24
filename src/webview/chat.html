@@ -199,6 +199,7 @@
                 💾 Memory: Loading...
             </div>
             <div>
+                <button id="toggleViewBtn" style="padding: 6px 12px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">📦 View Archived</button>
                 <button id="searchMemoryBtn" style="padding: 6px 12px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">🔍 Search</button>
                 <button id="exportMemoryBtn" style="padding: 6px 12px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">📥 Export</button>
                 <button id="importMemoryBtn" style="padding: 6px 12px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">📤 Import</button>
@@ -222,11 +223,14 @@
         const vscode = acquireVsCodeApi();
         let currentPersonaId = null;
         let chatHistory = {}; // { personaId: [messages] }
+        let archivedHistory = {}; // { personaId: [archived messages] }
         let favoritePersonas = []; // Array of favorite persona IDs
+        let viewMode = 'active'; // 'active' or 'archived'
 
         // Initialize
         window.addEventListener('load', () => {
             loadChatHistory();
+            loadArchivedHistory();
             loadFavoritePersonas();
             updateMemoryStats();
             
@@ -399,8 +403,21 @@
 
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isUser ? 'user' : 'persona'}`;
+            
+            const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            messageDiv.dataset.messageId = messageId;
+            messageDiv.dataset.timestamp = timestamp;
+            messageDiv.dataset.sender = sender;
+            messageDiv.dataset.text = text;
+            messageDiv.dataset.isUser = isUser;
+            
+            // アーカイブボタンを追加（viewMode に応じて表示を変更）
+            const actionButton = viewMode === 'active' 
+                ? `<button class="archive-btn" onclick="archiveMessage('${messageId}')" style="margin-left: 8px; padding: 2px 6px; font-size: 0.8em; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 3px; cursor: pointer;">📦 Archive</button>`
+                : `<button class="restore-btn" onclick="restoreMessage('${messageId}')" style="margin-left: 8px; padding: 2px 6px; font-size: 0.8em; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 3px; cursor: pointer;">↩️ Restore</button>`;
+            
             messageDiv.innerHTML = `
-                <div class="sender">${sender}</div>
+                <div class="sender">${sender} ${actionButton}</div>
                 <div class="text">${text}</div>
                 <div class="timestamp">${new Date(timestamp).toLocaleTimeString()}</div>
             `;
@@ -408,8 +425,8 @@
             chatContainer.appendChild(messageDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            // Save to history
-            if (currentPersonaId) {
+            // Save to history (active only)
+            if (currentPersonaId && viewMode === 'active') {
                 saveMessageToHistory(currentPersonaId, sender, text, timestamp, isUser);
             }
         }
@@ -524,11 +541,20 @@
             }
         }
 
+        function loadArchivedHistory() {
+            const state = vscode.getState();
+            if (state && state.archivedHistory) {
+                archivedHistory = state.archivedHistory;
+            }
+        }
+
         function updateMemoryStats() {
             const totalPersonas = Object.keys(chatHistory).length;
             const totalMessages = Object.values(chatHistory).reduce((sum, msgs) => sum + msgs.length, 0);
-            document.getElementById('memoryStats').textContent = 
-                `💾 Memory: ${totalPersonas} personas, ${totalMessages} messages`;
+            const totalArchived = Object.values(archivedHistory).reduce((sum, msgs) => sum + msgs.length, 0);
+            
+            document.getElementById('memoryStats').innerHTML = 
+                `💾 Memory: ${totalPersonas} personas, ${totalMessages} messages | 📦 Archived: ${totalArchived} messages`;
         }
 
         function saveMessageToHistory(personaId, sender, text, timestamp, isUser) {
@@ -555,6 +581,151 @@
             updateMemoryStats();
         }
 
+        // Archive & Restore Functions
+        function archiveMessage(messageId) {
+            const messageDiv = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageDiv) return;
+            
+            const messageData = {
+                sender: messageDiv.dataset.sender,
+                text: messageDiv.dataset.text,
+                timestamp: messageDiv.dataset.timestamp,
+                isUser: messageDiv.dataset.isUser === 'true',
+                messageId: messageId
+            };
+            
+            // Add to archived history
+            if (!archivedHistory[currentPersonaId]) {
+                archivedHistory[currentPersonaId] = [];
+            }
+            archivedHistory[currentPersonaId].push(messageData);
+            
+            // Remove from active history
+            if (chatHistory[currentPersonaId]) {
+                chatHistory[currentPersonaId] = chatHistory[currentPersonaId].filter(msg => 
+                    !(msg.sender === messageData.sender && 
+                      msg.text === messageData.text && 
+                      msg.timestamp === messageData.timestamp)
+                );
+            }
+            
+            // Save states
+            const state = vscode.getState() || {};
+            state.chatHistory = chatHistory;
+            state.archivedHistory = archivedHistory;
+            vscode.setState(state);
+            
+            // Remove from DOM with animation
+            messageDiv.style.transition = 'opacity 0.3s';
+            messageDiv.style.opacity = '0';
+            setTimeout(() => {
+                messageDiv.remove();
+                updateMemoryStats();
+            }, 300);
+            
+            displayError('📦 Message archived (click "View Archived" to restore)');
+            setTimeout(() => {
+                document.getElementById('errorContainer').innerHTML = '';
+            }, 3000);
+        }
+
+        function restoreMessage(messageId) {
+            const messageDiv = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageDiv) return;
+            
+            const messageData = {
+                sender: messageDiv.dataset.sender,
+                text: messageDiv.dataset.text,
+                timestamp: messageDiv.dataset.timestamp,
+                isUser: messageDiv.dataset.isUser === 'true'
+            };
+            
+            // Add back to active history
+            if (!chatHistory[currentPersonaId]) {
+                chatHistory[currentPersonaId] = [];
+            }
+            chatHistory[currentPersonaId].push(messageData);
+            
+            // Remove from archived history
+            if (archivedHistory[currentPersonaId]) {
+                archivedHistory[currentPersonaId] = archivedHistory[currentPersonaId].filter(msg => 
+                    msg.messageId !== messageId
+                );
+            }
+            
+            // Save states
+            const state = vscode.getState() || {};
+            state.chatHistory = chatHistory;
+            state.archivedHistory = archivedHistory;
+            vscode.setState(state);
+            
+            // Remove from DOM with animation
+            messageDiv.style.transition = 'opacity 0.3s';
+            messageDiv.style.opacity = '0';
+            setTimeout(() => {
+                messageDiv.remove();
+                updateMemoryStats();
+            }, 300);
+            
+            displayError('↩️ Message restored to active chat');
+            setTimeout(() => {
+                document.getElementById('errorContainer').innerHTML = '';
+            }, 3000);
+        }
+
+        function toggleView() {
+            viewMode = viewMode === 'active' ? 'archived' : 'active';
+            const toggleBtn = document.getElementById('toggleViewBtn');
+            
+            if (viewMode === 'archived') {
+                toggleBtn.textContent = '💬 View Active';
+                toggleBtn.style.background = 'var(--vscode-button-background)';
+                toggleBtn.style.color = 'var(--vscode-button-foreground)';
+                showArchivedMessages();
+            } else {
+                toggleBtn.textContent = '📦 View Archived';
+                toggleBtn.style.background = 'var(--vscode-button-secondaryBackground)';
+                toggleBtn.style.color = 'var(--vscode-button-secondaryForeground)';
+                if (currentPersonaId) {
+                    restoreChatHistory(currentPersonaId);
+                }
+            }
+        }
+
+        function showArchivedMessages() {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '';
+            
+            if (!currentPersonaId) {
+                chatContainer.innerHTML = '<div class="loading">Select a persona to view archived messages</div>';
+                return;
+            }
+            
+            const archived = archivedHistory[currentPersonaId] || [];
+            
+            if (archived.length === 0) {
+                const personaName = document.getElementById('personaSelect').options[document.getElementById('personaSelect').selectedIndex].textContent;
+                chatContainer.innerHTML = `<div class="loading">No archived messages for ${personaName}</div>`;
+            } else {
+                archived.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${msg.isUser ? 'user' : 'persona'}`;
+                    messageDiv.dataset.messageId = msg.messageId;
+                    messageDiv.dataset.timestamp = msg.timestamp;
+                    messageDiv.dataset.sender = msg.sender;
+                    messageDiv.dataset.text = msg.text;
+                    messageDiv.dataset.isUser = msg.isUser;
+                    
+                    messageDiv.innerHTML = `
+                        <div class="sender">${msg.sender} <button class="restore-btn" onclick="restoreMessage('${msg.messageId}')" style="margin-left: 8px; padding: 2px 6px; font-size: 0.8em; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 3px; cursor: pointer;">↩️ Restore</button></div>
+                        <div class="text">${msg.text}</div>
+                        <div class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</div>
+                    `;
+                    chatContainer.appendChild(messageDiv);
+                });
+            }
+        }
+
         function restoreChatHistory(personaId) {
             const chatContainer = document.getElementById('chatContainer');
             chatContainer.innerHTML = '';
@@ -565,11 +736,19 @@
                 const personaName = document.getElementById('personaSelect').options[document.getElementById('personaSelect').selectedIndex].textContent;
                 chatContainer.innerHTML = `<div class="loading">Chat with ${personaName} started!</div>`;
             } else {
-                history.forEach(msg => {
+                history.forEach((msg, index) => {
                     const messageDiv = document.createElement('div');
                     messageDiv.className = `message ${msg.isUser ? 'user' : 'persona'}`;
+                    
+                    const messageId = `msg-${personaId}-${index}-${Date.now()}`;
+                    messageDiv.dataset.messageId = messageId;
+                    messageDiv.dataset.timestamp = msg.timestamp;
+                    messageDiv.dataset.sender = msg.sender;
+                    messageDiv.dataset.text = msg.text;
+                    messageDiv.dataset.isUser = msg.isUser;
+                    
                     messageDiv.innerHTML = `
-                        <div class="sender">${msg.sender}</div>
+                        <div class="sender">${msg.sender} <button class="archive-btn" onclick="archiveMessage('${messageId}')" style="margin-left: 8px; padding: 2px 6px; font-size: 0.8em; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 3px; cursor: pointer;">📦 Archive</button></div>
                         <div class="text">${msg.text}</div>
                         <div class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</div>
                     `;
@@ -623,8 +802,16 @@
             });
         });
 
+        document.getElementById('toggleViewBtn').addEventListener('click', () => {
+            toggleView();
+        });
+
         document.getElementById('exportMemoryBtn').addEventListener('click', () => {
-            const dataStr = JSON.stringify(chatHistory, null, 2);
+            const exportData = {
+                active: chatHistory,
+                archived: archivedHistory
+            };
+            const dataStr = JSON.stringify(exportData, null, 2);
             const dataBlob = new Blob([dataStr], { type: 'application/json' });
             const url = URL.createObjectURL(dataBlob);
             const link = document.createElement('a');
@@ -634,7 +821,7 @@
             URL.revokeObjectURL(url);
             
             // Show confirmation
-            displayError('✅ Memory exported successfully!');
+            displayError('✅ Memory exported successfully (includes archived messages)!');
             setTimeout(() => {
                 document.getElementById('errorContainer').innerHTML = '';
             }, 3000);
@@ -651,7 +838,11 @@
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
-                    const importedHistory = JSON.parse(event.target.result);
+                    const importedData = JSON.parse(event.target.result);
+                    
+                    // Support both old format (direct history) and new format (active/archived)
+                    const importedHistory = importedData.active || importedData;
+                    const importedArchived = importedData.archived || {};
                     
                     // Merge with existing history
                     Object.keys(importedHistory).forEach(personaId => {
@@ -661,14 +852,31 @@
                         chatHistory[personaId] = [...chatHistory[personaId], ...importedHistory[personaId]];
                     });
                     
-                    vscode.setState({ chatHistory: chatHistory });
+                    // Merge archived history
+                    Object.keys(importedArchived).forEach(personaId => {
+                        if (!archivedHistory[personaId]) {
+                            archivedHistory[personaId] = [];
+                        }
+                        archivedHistory[personaId] = [...archivedHistory[personaId], ...importedArchived[personaId]];
+                    });
+                    
+                    const state = vscode.getState() || {};
+                    state.chatHistory = chatHistory;
+                    state.archivedHistory = archivedHistory;
+                    vscode.setState(state);
+                    
+                    updateMemoryStats();
                     
                     // Refresh current view if persona is selected
                     if (currentPersonaId) {
-                        restoreChatHistory(currentPersonaId);
+                        if (viewMode === 'active') {
+                            restoreChatHistory(currentPersonaId);
+                        } else {
+                            showArchivedMessages();
+                        }
                     }
                     
-                    displayError('✅ Memory imported successfully!');
+                    displayError('✅ Memory imported successfully (including archived messages)!');
                     setTimeout(() => {
                         document.getElementById('errorContainer').innerHTML = '';
                     }, 3000);
@@ -683,9 +891,14 @@
         });
 
         document.getElementById('clearMemoryBtn').addEventListener('click', () => {
-            if (confirm('⚠️ Are you sure you want to clear ALL conversation history? This cannot be undone!')) {
+            if (confirm('⚠️ Are you sure you want to clear ALL conversation history (including archived)? This cannot be undone!')) {
                 chatHistory = {};
-                vscode.setState({ chatHistory: chatHistory });
+                archivedHistory = {};
+                
+                const state = vscode.getState() || {};
+                state.chatHistory = chatHistory;
+                state.archivedHistory = archivedHistory;
+                vscode.setState(state);
                 
                 // Also clear Extension workspaceState
                 vscode.postMessage({ command: 'clearHistory' });
@@ -695,7 +908,7 @@
                 const chatContainer = document.getElementById('chatContainer');
                 chatContainer.innerHTML = '<div class="loading">Memory cleared. Select a persona to start fresh!</div>';
                 
-                displayError('✅ All memory has been cleared');
+                displayError('✅ All memory has been cleared (including archived)');
                 setTimeout(() => {
                     document.getElementById('errorContainer').innerHTML = '';
                 }, 3000);

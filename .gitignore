@@ -14,7 +14,12 @@ docs/BUSINESS_PLAN_DRAFT.md
 
 # Internal handover documents (session-specific)
 docs/handovers/HANDOVER_*.md
+docs/handovers/DAILY_LOG_*.md
 docs/handovers/PERSONA_MEMORY_UPDATE_*.md
+
+# Internal work plans (contain meeting details & personal info)
+docs/plans/NEXT_WORK_PLAN_*.md
+docs/plans/PART_21_REVISED.md
 
 # Test files with conversation content
 test_*.py
