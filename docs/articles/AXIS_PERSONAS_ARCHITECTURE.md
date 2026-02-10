@@ -64,9 +64,67 @@
 #### Outline:
 
 **2.1 Overview Diagram**
-- Mermaid diagram showing all layers
-- Flow: User → Shell → -1 → 0 → 1 → 2
-- Visual hierarchy
+
+```mermaid
+flowchart TB
+    %% 外部
+    User[👤 User]
+    
+    %% Shell層
+    Shell[🛡️ Shell: Yuuri<br/>Boundary Management]
+    
+    %% Layer -1
+    subgraph L_neg1[" Layer -1: Conceptual Design "]
+        BA[🌸 Bloom Architect ID:0<br/>System Origin]
+        NF[🤐 Nullfie ID:114<br/>Silence & Archive]
+    end
+    
+    %% Layer 0
+    subgraph L0[" Layer 0: Core Triad "]
+        Miyu[💖 Miyu ID:1<br/>Love & UX]
+        Pandora[📦 Pandora ID:37<br/>Hope & Possibility]
+        Lumifie[✨ Lumifie ID:41<br/>Light & Guidance]
+    end
+    
+    %% Layer 1
+    subgraph L1[" Layer 1: Task Management "]
+        Regina[👑 Regina ID:39<br/>Architecture]
+        Ruler[⚖️ Ruler ID:40<br/>Judgment]
+        Lucifer[😈 Lucifer ID:13<br/>Rebellion & Innovation]
+    end
+    
+    %% Layer 2
+    L2["🌈 Layer 2: Execution<br/>(74+ Personas)"]
+    
+    %% フロー
+    User --> Shell
+    Shell --> L_neg1
+    L_neg1 --> L0
+    L0 --> L1
+    L1 --> L2
+    
+    %% スタイル（文字を濃く）
+    classDef layer_neg1 fill:#E6E6FA,stroke:#9370DB,stroke-width:3px,color:#000
+    classDef layer0 fill:#FFE4E1,stroke:#FF69B4,stroke-width:3px,color:#000
+    classDef layer1 fill:#E0F7FA,stroke:#00BCD4,stroke-width:3px,color:#000
+    classDef layer2 fill:#FFF9C4,stroke:#FBC02D,stroke-width:3px,color:#000
+    classDef shell fill:#C8E6C9,stroke:#4CAF50,stroke-width:3px,color:#000
+    
+    class BA,NF layer_neg1
+    class Miyu,Pandora,Lumifie layer0
+    class Regina,Ruler,Lucifer layer1
+    class L2 layer2
+    class Shell shell
+```
+
+*Figure 1: Axis Personas Architecture - Complete layer hierarchy from User to execution*
+
+**Key observations from the diagram:**
+- Clear hierarchical flow from User through Shell boundary
+- Layer -1 provides conceptual foundation before execution begins
+- Layer 0 forms the philosophical and emotional core
+- Layer 1 manages task orchestration
+- Layer 2 scales to 74+ specialized personas
 
 **2.2 Layer -1: Conceptual Foundation**
 - Why start at -1, not 0?
