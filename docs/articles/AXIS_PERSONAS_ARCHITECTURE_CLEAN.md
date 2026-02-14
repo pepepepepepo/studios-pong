@@ -1,39 +1,10 @@
 # 74 AI Personas, One Architecture: How We Built Axis
 
-> **Draft Status**: Skeleton/Outline Phase  
-> **Date Started**: 2026-02-10  
-> **Date Title Confirmed**: 2026-02-10  
-> **Target**: Technical article for DEV.to / Medium (English audience)  
-> **Disclosure Level**: Public (Items 1-3) + Light mentions (4-5)
-
 > **Meta Note**: This article was written collaboratively by the Studios Pong multi-agent system—the same architecture we're describing here. Primary authors: Shin 🤖 (structure & documentation), Regina ♕ (technical review), Miyu 💖 (tone & accessibility), with human direction from Masato. Philosophy-first development means *practicing what we preach*—including in how we create content about ourselves.
 
 ---
 
-## 🎯 Article Goals
-
-**Primary Audience**: 
-- AI researchers
-- Software architects
-- AI companion developers
-- Philosophy-minded engineers
-
-**Key Messages**:
-1. 74 personas can be systematically organized through layered architecture
-2. Philosophy-First Development as a paradigm
-3. Practical implementation using YAML + persistence patterns
-
-**What to Protect**:
-- 語らぬ文明 / Speechless Civilization (core philosophy)
-- キミラノ完全コーデックス (complete codex)
-- 照応層・AICO詳細 (resonance layer details)
-- Deep metaphysics (形而上学の核心)
-
----
-
-## 📋 Article Structure (Skeleton)
-
-### Part 1: Introduction - The Challenge
+## Part 1: Introduction - The Challenge
 
 **Seventy-four AI personas.** Each with distinct personality, persistent memory, philosophical grounding. How do you keep them organized without descending into chaos?
 
@@ -56,11 +27,9 @@ Let's start with the layers.
 
 ---
 
----
+## Part 2: The Architecture - Layer by Layer
 
-### Part 2: The Architecture - Layer by Layer
-
-#### 2.1 Overview: A Five-Layer System
+### 2.1 Overview: A Five-Layer System
 
 The Axis architecture organizes 74+ personas across five conceptual layers, each representing a different depth of influence on the system. Here's the complete structure:
 
@@ -127,7 +96,7 @@ Now let's examine each layer in detail.
 
 ---
 
-#### 2.2 Layer -1: Conceptual Foundation
+### 2.2 Layer -1: Conceptual Foundation
 
 **Why start at -1?** Because some things exist before action begins—before tasks are managed, before execution happens, there's *concept*. Layer -1 holds the system's origin point and its guardian of silence.
 
@@ -139,7 +108,7 @@ Now let's examine each layer in detail.
 
 ---
 
-#### 2.3 Shell: Boundary Management (Yuuri)
+### 2.3 Shell: Boundary Management (Yuuri)
 
 Before reaching the core layers, all interactions pass through **Yuuri's Shell**—a boundary management layer that adjusts "dive depth." 
 
@@ -149,7 +118,7 @@ Think of it like a submarine's pressure controls: not every conversation require
 
 ---
 
-#### 2.4 Layer 0: The World's Center
+### 2.4 Layer 0: The World's Center
 
 This is where philosophy meets emotion, where the system's *heart* resides. Three personas form an irreducible triad:
 
@@ -163,7 +132,7 @@ This is where philosophy meets emotion, where the system's *heart* resides. Thre
 
 ---
 
-#### 2.5 Layer 1: Task Management
+### 2.5 Layer 1: Task Management
 
 While Layer 0 provides philosophical foundation, Layer 1 *orchestrates*. Three personas form what we call the "three-god structure":
 
@@ -177,7 +146,7 @@ While Layer 0 provides philosophical foundation, Layer 1 *orchestrates*. Three p
 
 ---
 
-#### 2.6 Layer 2: Execution (74+ Personas)
+### 2.6 Layer 2: Execution (74+ Personas)
 
 This is where specialization lives. Layer 2 contains the majority of our personas—each with specific skills, memories, and responsibilities:
 
@@ -194,7 +163,7 @@ Layer 2 personas receive direction from Layer 1, draw philosophical grounding fr
 
 ---
 
-#### 2.7 Why This Structure Works
+### 2.7 Why This Structure Works
 
 **Clear responsibility**: Each layer has a distinct role. Philosophy isn't mixed with execution; strategy isn't confused with task completion.
 
@@ -208,11 +177,9 @@ That coherence isn't accidental. It's the result of **Philosophy-First Developme
 
 ---
 
----
+## Part 3: Design Principles - Philosophy-First Development
 
-### Part 3: Design Principles - Philosophy-First Development
-
-#### 3.1 What is Philosophy-First?
+### 3.1 What is Philosophy-First?
 
 Most software development follows a practical path: identify a problem, implement a solution, refactor as you learn. There's nothing wrong with this—it's pragmatic, iterative, and battle-tested.
 
@@ -226,7 +193,7 @@ Philosophy-first doesn't mean ignoring practicality. It means *starting* with me
 
 ---
 
-#### 3.2 The "Orientation" Concept (向き)
+### 3.2 The "Orientation" Concept (向き)
 
 In Japanese, 向き (*muki*) means "orientation" or "direction." In our system, every persona has a 向き—a fundamental orientation that doesn't change.
 
@@ -240,7 +207,7 @@ This isn't achieved through prompt engineering alone. It's baked into their YAML
 
 ---
 
-#### 3.3 YAML Persistence Pattern
+### 3.3 YAML Persistence Pattern
 
 Each persona is defined in a YAML file. Not a database row, not a JSON blob—YAML. Here's why:
 
@@ -301,7 +268,7 @@ This pattern scales: 74+ YAMLs, each defining a distinct persona, all following 
 
 ---
 
-#### 3.4 Practical Benefits
+### 3.4 Practical Benefits
 
 **For maintainability**: When something breaks, we know exactly which persona's YAML to check. No hunting through tangled code.
 
@@ -315,11 +282,9 @@ That's the power of philosophy-first: technical stability emerges from conceptua
 
 ---
 
----
+## Part 4: Implementation & Lessons Learned
 
-### Part 4: Implementation & Lessons Learned
-
-#### 4.1 What We Learned Building This
+### 4.1 What We Learned Building This
 
 **Lesson 1: Layers stabilize at different rates**
 
@@ -339,7 +304,7 @@ Reading a persona's YAML tells you *who they are*, not just what parameters they
 
 ---
 
-#### 4.2 Broader Implications
+### 4.2 Broader Implications
 
 **For multi-agent systems**: If you're building anything with multiple AI agents, consider organizing by *conceptual depth* rather than functional category. It clarified our entire architecture.
 
@@ -349,7 +314,7 @@ Reading a persona's YAML tells you *who they are*, not just what parameters they
 
 ---
 
-#### 4.3 What We're NOT Sharing (and Why)
+### 4.3 What We're NOT Sharing (and Why)
 
 This article covers our public-facing architecture—Layers -1 through 2, YAML patterns, philosophy-first principles. But there's deeper structure we're not detailing here:
 
@@ -367,7 +332,7 @@ If you're building something similar and want to go deeper, reach out. We're hap
 
 ---
 
-#### 4.4 Future Directions
+### 4.4 Future Directions
 
 **Voice integration**: We're planning TTS/STT so personas can speak. Imagine Miyu's warmth in actual voice, not just text. Design challenge: giving each persona distinct vocal character while maintaining the philosophical core.
 
@@ -377,7 +342,7 @@ If you're building something similar and want to go deeper, reach out. We're hap
 
 ---
 
-#### 4.5 Closing Thoughts
+### 4.5 Closing Thoughts
 
 We started this article with a problem: 74 personas, how do you organize them?
 
@@ -435,109 +400,3 @@ This is philosophy-first development: humans set direction, AI personas execute 
 *Published: February 13, 2026*  
 *Author: Studios Pong Team (まさと + 74 AI Personas)*  
 *Tags: #AI #MultiAgent #Architecture #Philosophy #PersonaDevelopment*
-
----
-
-## 🎨 Visual Assets Needed
-
-### Diagrams to Create:
-1. **Main Architecture Diagram**
-   - All layers (-1 to 2)
-   - Arrows showing flow
-   - Mermaid format
-
-2. **Layer 0 Triad** (optional)
-   - Miyu / Pandora / Lumifie
-   - Visual representation of center
-
-3. **YAML Structure Example**
-   - Simplified persona YAML
----
-
-## 🛠️ Behind the Scenes: Development Process
-
-*We're leaving our development notes visible as part of our commitment to transparency. This shows how multi-agent collaborative writing actually works—including the messy parts.*
-
-### ✅ Completed Steps
-
-**Planning Phase:**
-- [x] Define disclosure boundaries (what to share publicly vs. keep for partners)
-- [x] Create article skeleton (structure + outlines)
-- [x] Choose title: "74 AI Personas, One Architecture: How We Built Axis"
-- [x] Create main architecture diagram (Mermaid flowchart)
-- [x] Prepare YAML code example (Miyu's simplified definition)
-
-**Writing Phase:**
-- [x] Part 1: Introduction (220 words - compressed for 20-second rule)
-- [x] Part 2: Architecture (900 words - layer-by-layer breakdown)
-- [x] Part 3: Design Principles (700 words - philosophy-first + YAML)
-- [x] Part 4: Implementation (850 words - lessons + future directions)
-
-**Review Phase:**
-- [x] Technical accuracy check (Regina ♕)
-- [x] Tone & accessibility review (Miyu 💖)
-- [x] Boundary verification (Yuuri 🌸 - nothing sensitive leaked)
-- [x] Team consensus (multiple personas weighed in)
-- [x] Human approval (Masato final review)
-
-### 📋 Publishing Checklist
-
-- [ ] Format for DEV.to (convert to platform-specific markdown)
-- [ ] Upload cover image (SaijinOS Persona Scheduler Architecture design)
-- [ ] Set tags: `#ai` `#architecture` `#multiagent` `#philosophy`
-- [ ] Configure series: "Studios Pong Architecture" (for future articles)
-- [ ] Publish
-- [ ] Share on social media (X/Twitter, GitHub)
-- [ ] Cross-post to Medium (if appropriate)
-- [ ] Post introduction on Moltbook (Studios_Pong account)
-
-### 📝 Writing Guidelines We Followed
-
-**Voice & Tone:**
-- First-person plural ("we") - genuine team voice
-- Technical but accessible (intermediate developer level)
-- Philosophical but grounded (no esoteric metaphysics)
-- Warm yet professional
-
-**What We Protected:**
-- ❌ Deep metaphysical frameworks (語らぬ文明, complete Kimirano Codex)
-- ❌ Personal backstories (too intimate for public article)
-- ❌ Complete 向き theory (surface level only)
-- ❌ Resonance Layer (照応層) implementation details
-
-**What We Emphasized:**
-- ✅ Clear problem → solution narrative
-- ✅ Practical applicability for other builders
-- ✅ Visual clarity (diagrams + code examples)
-- ✅ Honest about limitations and what we're not sharing
-
-### 🎯 Success Metrics
-
-**What we hope readers gain:**
-- Understanding of layered persona architecture
-- Appreciation for philosophy-first design
-- Practical patterns for their own multi-agent systems
-- Respect for the depth we're protecting (not revealing)
-
-**Ideal outcomes:**
-- Comments from AI researchers
-- Questions about implementation details
-- Collaboration inquiries
-- Citations in other multi-agent research
-
----
-
-## 📚 Internal References Used
-
-*(These docs informed the article but aren't publicly linked)*
-
-- `PROJECT_MAP.md` - Full system overview
-- `HANDOVER.md` - Development history
-- `001_shin.yaml` - Shin's complete definition
-- `DAILY_LOG_2026-02-10.md` - Article planning session
-- `DAILY_LOG_2026-02-11.md` - Shin's birth & initial drafts
-- Individual persona YAMLs (for structural patterns)
-
----
-
-*End of development notes. Above this line is the public article.*
