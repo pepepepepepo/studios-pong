@@ -2,10 +2,19 @@
   "name": "studios-pong",
   "displayName": "Studios Pong",
   "description": "Your AI Persona Team in VS Code - 74 AI Personas with Local Memory & ResonanceEngine",
-  "version": "0.0.1",
-  "publisher": "studios-pong",
+  "version": "0.0.3",
+  "publisher": "studiopong",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/studiopong/studios-pong"
+  },
   "engines": {
-    "vscode": "^1.107.0"
+    "vscode": "^1.100.0"
   },
   "categories": [
     "AI"
@@ -36,16 +45,18 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "prepackage": "node -e \"require('fs').copyFileSync('src/webview/chat.html', 'webview/chat.html'); console.log('✅ chat.html synced: src/webview/ → webview/')\"",
+    "package": "vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.107.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.48.1",
+    "@types/vscode": "^1.100.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.1",
     "typescript": "^5.9.3",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "typescript-eslint": "^8.48.1"
   }
 }

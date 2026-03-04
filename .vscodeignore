@@ -9,3 +9,22 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+
+# Python 環境（巨大 / 不要）
+.venv/**
+__pycache__/**
+*.py
+
+# 開発用ドキュメント・サブプロジェクト
+docs/**
+mcp-server/**
+
+# Git / CI
+.git/**
+.github/**
+
+# スクリーンショット（今はプレースホルダー）
+docs/screenshots/**
+
+# Node modules（パッケージ後は不要）
+node_modules/**
