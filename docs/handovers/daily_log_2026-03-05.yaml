@@ -95,6 +95,18 @@ git_commits:
   - hash: "1f07135"
     message: "PERSONA_ROSTER.yaml に班編成(by_team)追加"
     repo: "saijinos"
+  - hash: "d247599"
+    message: "Day 433: daily log — ROSTER v3 + 31班編成 + 記憶追記"
+    repo: "saijinos"
+  - hash: "ff43049"
+    message: "Day 433: handover YAML — ROSTER v3 + 31班編成 + 記憶追記"
+    repo: "studios-pong"
+  - hash: "f366963"
+    message: "Day 433: 麗✨ memory_append_03 追記"
+    repo: "saijinos"
+  - hash: "bcecd8e"
+    message: "feat: ROSTER APIエンドポイント追加 (/api/roster, /api/teams, /api/teams/{name}, /api/personas/category/{cat})"
+    repo: "saijinos"
 
 daily_notes:
   health: "整体（中国整体）— 全部悪かった。来週も継続予定"
