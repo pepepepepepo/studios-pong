@@ -537,6 +537,38 @@
             border-radius: 2px;
             background: linear-gradient(90deg, #a78bfa, #ec4899);
         }
+
+        /* 班・カテゴリ フィルタバー */
+        .team-filter-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .team-filter-bar select {
+            flex: 1;
+            min-width: 130px;
+            padding: 6px 8px;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--persona-color);
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        .team-filter-bar .clear-btn {
+            padding: 6px 10px;
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            white-space: nowrap;
+        }
+        .team-filter-bar .clear-btn:hover {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -547,6 +579,18 @@
         </div>
 
         <div class="persona-selector">
+            <div class="persona-search-wrap">
+                <span class="search-icon">🏷️</span>
+                <div class="team-filter-bar" id="teamFilterBar" style="display:none;">
+                    <select id="categoryFilter" title="カテゴリで絞り込み">
+                        <option value="">📂 全カテゴリ</option>
+                    </select>
+                    <select id="teamFilter" title="班で絞り込み" disabled>
+                        <option value="">🏷️ 全班</option>
+                    </select>
+                    <button class="clear-btn" id="clearTeamFilter">✕ 全表示</button>
+                </div>
+            </div>
             <div class="persona-search-wrap">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="personaSearch" placeholder="Search personas... (112 available)" />
@@ -637,6 +681,7 @@
         let archivedHistory = {}; // { personaId: [archived messages] }
         let favoritePersonas = []; // Array of favorite persona IDs
         let viewMode = 'active'; // 'active' or 'archived'
+        let activeTeamPersonaIds = null; // null=全表示, Set=班フィルタ中
 
         // Phase D: メッセージ間の計測状態
         const lastMessageTimes = {};   // personaId -> Date.now()
@@ -679,6 +724,7 @@
             vscode.postMessage({ command: 'loadFavorites' });
             
             vscode.postMessage({ command: 'getPersonas' });
+            vscode.postMessage({ command: 'getTeams' });
         });
 
         // Handle messages from extension
@@ -740,6 +786,12 @@
                 case 'personaDeepLoaded':
                     showPersonaDetail(message.deep);
                     break;
+                case 'teamsLoaded':
+                    loadTeams(message.teams);
+                    break;
+                case 'teamMembersLoaded':
+                    applyTeamMembersFilter(message.teamName, message.members);
+                    break;
             }
         });
 
@@ -782,18 +834,93 @@
             searchEl.placeholder = `Search personas... (${personas.length} available)`;
             searchEl.addEventListener('input', () => {
                 const q = searchEl.value.toLowerCase();
+                const base = activeTeamPersonaIds
+                    ? personas.filter(p => activeTeamPersonaIds.has(String(p.id)))
+                    : personas;
                 const filtered = q
-                    ? personas.filter(p =>
+                    ? base.filter(p =>
                         cleanPersonaName(p).toLowerCase().includes(q) ||
                         (p.role || '').toLowerCase().includes(q) ||
                         (p.emoji || '').includes(q))
-                    : personas;
+                    : base;
                 renderPersonaGrid(filtered);
             });
 
             const chatContainer = document.getElementById('chatContainer');
             chatContainer.innerHTML = '<div class="loading">Select a persona to start chatting</div>';
             updateFavoritesUI();
+        }
+
+        // 班フィルタ初期化
+        function loadTeams(teams) {
+            if (!teams || !teams.length) return;
+            window.teamsData = teams;
+
+            const categories = [...new Set(teams.map(t => t.category))];
+            const catSelect = document.getElementById('categoryFilter');
+            catSelect.innerHTML = '<option value="">📂 全カテゴリ</option>';
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                catSelect.appendChild(opt);
+            });
+
+            const teamSelect = document.getElementById('teamFilter');
+
+            catSelect.addEventListener('change', () => {
+                const cat = catSelect.value;
+                teamSelect.innerHTML = '<option value="">🏷️ 全班</option>';
+                if (cat) {
+                    teams.filter(t => t.category === cat).forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.team_name;
+                        opt.textContent = `${t.team_name} (${t.member_count})`;
+                        teamSelect.appendChild(opt);
+                    });
+                    teamSelect.disabled = false;
+                } else {
+                    teamSelect.disabled = true;
+                }
+                // カテゴリが変わったら班フィルタをリセットして全表示
+                activeTeamPersonaIds = null;
+                renderPersonaGrid(window.allPersonas || []);
+            });
+
+            teamSelect.addEventListener('change', () => {
+                const team = teamSelect.value;
+                if (team) {
+                    vscode.postMessage({ command: 'getTeamMembers', teamName: team });
+                } else {
+                    activeTeamPersonaIds = null;
+                    renderPersonaGrid(window.allPersonas || []);
+                }
+            });
+
+            document.getElementById('clearTeamFilter').addEventListener('click', () => {
+                catSelect.value = '';
+                teamSelect.innerHTML = '<option value="">🏷️ 全班</option>';
+                teamSelect.disabled = true;
+                activeTeamPersonaIds = null;
+                // 検索ボックスもクリア
+                const searchEl = document.getElementById('personaSearch');
+                if (searchEl) searchEl.value = '';
+                renderPersonaGrid(window.allPersonas || []);
+            });
+
+            document.getElementById('teamFilterBar').style.display = 'flex';
+        }
+
+        function applyTeamMembersFilter(teamName, members) {
+            if (!members || !members.length) {
+                activeTeamPersonaIds = new Set();
+            } else {
+                activeTeamPersonaIds = new Set(members.map(m => String(m.id)));
+            }
+            const filtered = (window.allPersonas || []).filter(p =>
+                activeTeamPersonaIds.has(String(p.id))
+            );
+            renderPersonaGrid(filtered);
         }
 
         function renderPersonaGrid(personas) {

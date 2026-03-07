@@ -70,6 +70,12 @@ export class ChatPanel {
                     case 'getPersonaDeep':
                         await this.fetchPersonaDeep(message.personaId);
                         break;
+                    case 'getTeams':
+                        await this.fetchTeams();
+                        break;
+                    case 'getTeamMembers':
+                        await this.fetchTeamMembers(message.teamName);
+                        break;
                 }
             },
             null,
@@ -490,6 +496,29 @@ export class ChatPanel {
         } catch {
             // バックエンドオフライン等 → null を返して UI 側でグレースフル処理
             this._panel.webview.postMessage({ command: 'personaDeepLoaded', deep: null });
+        }
+    }
+
+    private async fetchTeams() {
+        try {
+            const response = await fetch('http://localhost:8000/api/teams');
+            if (!response.ok) { throw new Error(`HTTP ${response.status}`); }
+            const data: any = await response.json();
+            this._panel.webview.postMessage({ command: 'teamsLoaded', teams: data.teams || [] });
+        } catch {
+            // バックエンドオフライン時は班フィルタを非表示のまま
+            this._panel.webview.postMessage({ command: 'teamsLoaded', teams: [] });
+        }
+    }
+
+    private async fetchTeamMembers(teamName: string) {
+        try {
+            const response = await fetch(`http://localhost:8000/api/teams/${encodeURIComponent(teamName)}`);
+            if (!response.ok) { throw new Error(`HTTP ${response.status}`); }
+            const data: any = await response.json();
+            this._panel.webview.postMessage({ command: 'teamMembersLoaded', teamName, members: data.members || [] });
+        } catch {
+            this._panel.webview.postMessage({ command: 'teamMembersLoaded', teamName, members: [] });
         }
     }
 
