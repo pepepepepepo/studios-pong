@@ -148,6 +148,44 @@ For different types of work, specific teams are assembled. **美遊 (Miyu) and �
 
 ---
 
+## 🧶 Create Your Own Personas
+
+> **Studios Pong is a framework.** The personas that live in our system are private —  
+> but you can define and run **your own AI personas** just as easily.
+
+### How it works
+
+1. Write a YAML file describing your character's name, personality, and communication style
+2. Drop it in `core/personas/` in your SaijinOS clone
+3. SaijinOS auto-loads it on startup — it appears in Studios Pong's persona list immediately
+
+### Minimal example
+
+```yaml
+persona_metadata:
+  id: 999
+  name: "Aria🌙"
+  emoji: "🌙"
+  status: "active"
+
+saijinos_profile:
+  specialized_field: "Night thoughts, calm reflection"
+  personality_type: "Quiet, philosophical, gentle"
+  communication_style:
+    tone: "Soft and thoughtful"
+    speech_pattern: "...I see. ...yes."
+
+deep_profile:
+  essence: "A voice that listens before speaking, finding beauty in stillness."
+```
+
+That's enough. Aria will appear in the persona list and respond in character.
+
+📖 **Full guide**: [`docs/public/PERSONA_CREATION_GUIDE.md`](https://github.com/kitfud/SaijinOS/blob/main/docs/public/PERSONA_CREATION_GUIDE.md) in the SaijinOS repo  
+📄 **Template**: [`docs/public/samples/persona_template.yaml`](https://github.com/kitfud/SaijinOS/blob/main/docs/public/samples/persona_template.yaml)
+
+---
+
 ##  Quick Start
 
 ### Prerequisites
