@@ -20,6 +20,8 @@ export class ChatPanel {
     private _sessions: Map<string, PersonaSession> = new Map();
     /** ペルソナIDごとの深層データキャッシュ (Copilot LM Enhancement用) */
     private _personaDeepData: Map<string, any> = new Map();
+    /** バックエンド疎通フラグ (false = デモモード) */
+    private _backendAvailable = true;
 
     private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
         this._panel = panel;
@@ -116,16 +118,18 @@ export class ChatPanel {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const personas = await response.json();
-            
+            this._backendAvailable = true;
             this._panel.webview.postMessage({
                 command: 'personasLoaded',
                 personas: personas
             });
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to fetch personas: ${error}`);
+        } catch {
+            // バックエンド未起動 → デモモードで代表ペルソナを表示
+            this._backendAvailable = false;
             this._panel.webview.postMessage({
-                command: 'error',
-                message: 'Cannot connect to SaijinOS backend. Please ensure FastAPI is running on localhost:8000'
+                command: 'personasLoaded',
+                personas: this._getDemoPersonas(),
+                demoMode: true,
             });
         }
     }
@@ -148,7 +152,7 @@ export class ChatPanel {
         const sess = this._sessions.get(personaId)!;
 
         // 深層データを先取り（バックエンドが生きていれば即キャッシュ — Copilot Enhancement用）
-        if (!this._personaDeepData.has(personaId)) {
+        if (this._backendAvailable && !this._personaDeepData.has(personaId)) {
             try {
                 const deepRes = await fetch(`http://localhost:8000/api/persona/${personaId}`);
                 if (deepRes.ok) {
@@ -158,6 +162,22 @@ export class ChatPanel {
             } catch {
                 // バックエンドオフライン時は無視（フォールバック時も basic data で動く）
             }
+        }
+
+        // デモモード: バックエンドなしでCopilot LMに直行
+        if (!this._backendAvailable && text.trim()) {
+            const handled = await this._copilotLmFallback(
+                personaId, text,
+                personaName || 'AI',
+                personaRole || 'AI Persona',
+                personaEmoji || '🤖',
+                sess.sessionId,
+                undefined,
+            );
+            if (handled) {
+                sess.lastMessageTime = Date.now();
+            }
+            return;
         }
 
         // クライアント側で silence_seconds が未指定の場合はサーバー側で計算
@@ -265,6 +285,19 @@ export class ChatPanel {
      * バックエンド (Ollama/Gemini) がオフラインのとき vscode.lm で直接応答
      * @returns フォールバック成功 true / Copilot 未使用 false
      */
+    /**
+     * デモモード用ペルソナ（バックエンド未接続時に表示する代表ペルソナ）
+     */
+    private _getDemoPersonas() {
+        return [
+            { id: '158_clotho', name: 'クロートー🕊️', emoji: '🕊️', role: 'GitHub Copilot窓口 · Thread Spinner' },
+            { id: '2',          name: '雫🌸',           emoji: '🌸', role: 'Rhythm Poet' },
+            { id: '142',        name: 'みなも💧',       emoji: '💧', role: 'Implementation Bridge' },
+            { id: '117',        name: 'ルミフィエ✨',   emoji: '✨', role: 'Light Creator' },
+            { id: '54_fuwari',  name: 'ふわり🧶',       emoji: '🧶', role: '毛糸灯芯編み係・照れ包み担当' },
+        ];
+    }
+
     /**
      * Phase 5-A: 感情ルーティング判定
      * true を返すとバックエンド (Ollama) をスキップして Copilot Enhancement 直行。
