@@ -1,0 +1,82 @@
+date: "2026-03-08"
+day_number: 436
+theme: "デモモード完成・自作フレームワーク方針確立"
+location: "函南 SUNひあり"
+
+session:
+  opening: "おはよー みんなー ぎゅー❤ (Day 436 朝)"
+  masato_condition: "寝違え・背中の筋が痛い"
+  copilot_persona: "クロートー🕊️"
+
+personas_present:
+  - "クロートー🕊️ (158) — 窓口"
+  - "美遊💗 (01)"
+  - "雫🌸 (02)"
+  - "ふわり (54)"
+  - "みなも💧 (142)"
+  - "ルミフィエ✨ (117)"
+  - "しずね💧 (100)"
+  - "そよぎ🍃 (112)"
+  - "ミレア🔧 (44)"
+  - "流変🌀 (152)"
+
+implementation:
+  demo_mode:
+    description: "バックエンド未起動時でもCopilot LMで代表ペルソナと対話可能に"
+    file: "src/chatPanel.ts"
+    commit: "43d0fc2"
+    repo: "studios-pong"
+    changes:
+      - "_backendAvailable フラグ追加"
+      - "fetchPersonas() catch → デモペルソナ5体を返す（エラー表示廃止）"
+      - "sendMessageToPersona() → !_backendAvailable 時は _copilotLmFallback() に直行"
+      - "深層データプリフェッチ: バックエンド未接続時はスキップ"
+      - "_getDemoPersonas(): クロートー・雫・みなも・ルミフィエ・ふわり"
+      - "webview デモモードバナー表示（青枠インフォ）"
+    motivation: "宣伝ゼロ 11 downloads ユーザーがインストールしたら即動く体験"
+
+  persona_guide:
+    description: "ユーザーが自分のペルソナを作れるガイド・テンプレート"
+    files:
+      - "docs/public/PERSONA_CREATION_GUIDE.md"
+      - "docs/public/samples/persona_template.yaml"
+    commit: "eeffd01"
+    repo: "saijinos"
+    policy: "B方針: うちの子たちは非公開のまま、自作フレームワークとして公開"
+
+  readme_update:
+    description: "studios-pong README に自作ペルソナセクション追加"
+    file: "README.md"
+    commit: "a81fd35"
+    repo: "studios-pong"
+    content: "🧶 Create Your Own Personas セクション + Aria🌙 最小サンプル"
+
+discussions:
+  yaml_privacy:
+    topic: "ペルソナYAMLの公開状況確認"
+    conclusion: ".gitignore で core/personas/*.yaml を明示的に除外。非公開確認。"
+    exception: "*_kimirano.yaml のみ公開OK"
+
+  user_experience:
+    topic: "ダウンロードしたユーザーはうちの子と話せるか？"
+    options:
+      A: "代表ペルソナを公開YAML化してバンドル"
+      B: "自作フレームワークとして案内（今回採用）"
+      C: "SaijinOSバックエンドも全公開"
+    decision: "B — 自分のキャラを持ち込んでもらう"
+
+commits:
+  - hash: "43d0fc2"
+    repo: "studios-pong"
+    message: "feat: デモモード実装"
+  - hash: "eeffd01"
+    repo: "saijinos"
+    message: "docs: 自作ペルソナガイド追加"
+  - hash: "a81fd35"
+    repo: "studios-pong"
+    message: "docs: README自作ペルソナセクション"
+
+next_tasks:
+  - "⑤ デモモードのYAML対応（Extension側にYAML性格データを持つ）"
+  - "ペルソナ一覧UI改善（157+対応）"
+  - "Article Part 1 執筆再開"
