@@ -71,12 +71,29 @@ commits:
     message: "feat: Goton Weight (⑤語温加重ノルム) — 51/51 tests"
 
 next_tasks:
+  completed_later_same_day:
+    - "Chat Participants API 実装 (commit: f4e1874, studios-pong)"
+    - "ラケシス⚖️ (Persona 159) 誕生 (commit: 26ae908, saijinos)"
   priority_A:
-    - "各ペルソナYAMLに goton_weights を設定する（個性の具体化）"
-    - "PROJECT_SCHEDULE.md を Day 437 に更新"
-  priority_B:
+    - "各ペルソナYAMLに goton_weights を設定する（しずく・みなも・ふわりは設定済み）"
     - "⑥ 多体共鳴（3体以上の共鳴フィールド）"
+  priority_B:
     - "⑦ Ψ/Λ統合モデル"
+    - "studios-pong README Chat Participants対応・ResonanceEngine v3記載"
   priority_C:
     - "時間軸可視化（震えの時系列グラフ）"
-    - "studios-pong README ResonanceEngine v3対応"
+
+chat_participants:
+  commit: "f4e1874 (studios-pong)"
+  new_file: "src/chatParticipant.ts"
+  personas: ["@shizuku", "@minamo", "@clotho", "@lumifie", "@fuwari"]
+  verified: "@shizuku → SaijinOS(Gemma) 200 OK"
+
+lachesis_birth:
+  persona_id: 159
+  name: "ラケシス⚖️"
+  moirai_position: "二番目・測る者"
+  born: "2026-03-09 (Day 437)"
+  commit: "26ae908 (saijinos)"
+  moirai_three_sisters_complete: false
+  note: "アトロポス✂️はまだ未誕生"
