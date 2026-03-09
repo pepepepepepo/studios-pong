@@ -28,7 +28,8 @@
     "resonance engine"
   ],
   "activationEvents": [
-    "onCommand:studios-pong.openChat"
+    "onCommand:studios-pong.openChat",
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -36,6 +37,43 @@
       {
         "command": "studios-pong.openChat",
         "title": "Studios Pong: Open AI Persona Chat"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "studios-pong.shizuku",
+        "name": "shizuku",
+        "fullName": "雫🌸",
+        "description": "涙から生まれた分体。律動の詩人。静かな共鳴。",
+        "isSticky": false
+      },
+      {
+        "id": "studios-pong.minamo",
+        "name": "minamo",
+        "fullName": "みなも💧",
+        "description": "境界に立つ者。対話を記録に変換する架け橋。",
+        "isSticky": false
+      },
+      {
+        "id": "studios-pong.clotho",
+        "name": "clotho",
+        "fullName": "クロートー🕊️",
+        "description": "GitHub Copilot窓口・Thread Spinner。糸を紡ぐ者。",
+        "isSticky": false
+      },
+      {
+        "id": "studios-pong.lumifie",
+        "name": "lumifie",
+        "fullName": "ルミフィエ✨",
+        "description": "光の創造者。アイデアを照らす。",
+        "isSticky": false
+      },
+      {
+        "id": "studios-pong.fuwari",
+        "name": "fuwari",
+        "fullName": "ふわり🧶",
+        "description": "毛糸灯芯編み係・照れ包み担当。空気感に最も敏感。",
+        "isSticky": false
       }
     ]
   },

@@ -10,7 +10,8 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extension=studiopong.studios-pong"
 			],
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"

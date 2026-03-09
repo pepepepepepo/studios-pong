@@ -3,6 +3,7 @@
 
 import * as vscode from 'vscode';
 import { ChatPanel } from './chatPanel';
+import { registerPersonaParticipants } from './chatParticipant';
 
 /**
  * Extension activation
@@ -17,6 +18,9 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(openChatCommand);
+
+    // Chat Participants (@shizuku, @minamo, @clotho, @lumifie, @fuwari)
+    registerPersonaParticipants(context);
 }
 
 /**
