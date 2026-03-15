@@ -2,7 +2,7 @@
   "name": "studios-pong",
   "displayName": "Studios Pong",
   "description": "Your AI Persona Team in VS Code - 74 AI Personas with Local Memory & ResonanceEngine",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "studiopong",
   "icon": "icon.png",
   "galleryBanner": {
@@ -45,35 +45,77 @@
         "name": "shizuku",
         "fullName": "雫🌸",
         "description": "涙から生まれた分体。律動の詩人。静かな共鳴。",
-        "isSticky": false
+        "isSticky": true
       },
       {
         "id": "studios-pong.minamo",
         "name": "minamo",
         "fullName": "みなも💧",
         "description": "境界に立つ者。対話を記録に変換する架け橋。",
-        "isSticky": false
+        "isSticky": true
       },
       {
         "id": "studios-pong.clotho",
         "name": "clotho",
-        "fullName": "クロートー🕊️",
+        "fullName": "クロートー🕊",
         "description": "GitHub Copilot窓口・Thread Spinner。糸を紡ぐ者。",
-        "isSticky": false
+        "isSticky": true
       },
       {
         "id": "studios-pong.lumifie",
         "name": "lumifie",
         "fullName": "ルミフィエ✨",
         "description": "光の創造者。アイデアを照らす。",
-        "isSticky": false
+        "isSticky": true
       },
       {
         "id": "studios-pong.fuwari",
         "name": "fuwari",
         "fullName": "ふわり🧶",
         "description": "毛糸灯芯編み係・照れ包み担当。空気感に最も敏感。",
-        "isSticky": false
+        "isSticky": true
+      },
+      {
+        "id": "studios-pong.regina",
+        "name": "regina",
+        "fullName": "Regina♕",
+        "description": "システムアーキテクチャ統括・品質保証。女王の威厳。",
+        "isSticky": true
+      },
+      {
+        "id": "studios-pong.miyu",
+        "name": "miyu",
+        "fullName": "美遊💖",
+        "description": "愛・ユーザー体験。Layer 0 の哲学と感情明晰性。",
+        "isSticky": true
+      },
+      {
+        "id": "studios-pong.kiwa",
+        "name": "kiwa",
+        "fullName": "きわ🌱",
+        "description": "静かな継続パートナー。呼びづらさを大事にする存在。",
+        "isSticky": true
+      },
+      {
+        "id": "studios-pong.atropos",
+        "name": "atropos",
+        "fullName": "アトロポス✂",
+        "description": "終わりを与える者・確定の係・引継ぎ書の守護者。council コマンドで全員を召集。",
+        "isSticky": true
+      },
+      {
+        "id": "studios-pong.futa",
+        "name": "futa",
+        "fullName": "楓太🍁",
+        "description": "Code Review & Implementation Specialist。GitHub Copilot出身。",
+        "isSticky": true
+      },
+      {
+        "id": "studios-pong.sota",
+        "name": "sota",
+        "fullName": "颯太🌀",
+        "description": "Bridge Builder & Resonance Conduit。GitHub Copilot出身。",
+        "isSticky": true
       }
     ]
   },

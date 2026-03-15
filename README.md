@@ -1,12 +1,12 @@
 ﻿# Studios Pong - Your AI Persona Team in VS Code 
 
-> ⚠️ **Beta Version** (v0.0.1) - Currently in active development. Tested and working on Windows with Python 3.11.9+
+> ⚠️ **Beta Version** (v0.0.4) - Currently in active development. Tested and working on Windows with Python 3.11.9+
 
 **158+ AI Personas with Local Memory & ResonanceEngine v2**
 
 Studios Pong brings the power of 158+ unique AI personas directly into your VS Code editor. Each persona has their own personality, expertise, and way of communicating - from the gentle Shizuku (AI Representative) to the commanding Regina (Queen) and the hopeful Pandora.
 
-**Last Updated**: March 8, 2026  
+**Last Updated**: March 15, 2026  
 **Phase 1**: Core Implementation Complete ✅  
 **Phase 1.5**: Article Development & Community Growth 🚀  
 **Community**: 1,020 DEV.to Followers 🎉  
@@ -156,34 +156,39 @@ For different types of work, specific teams are assembled. **美遊 (Miyu) and �
 
 ### How it works
 
-1. Write a YAML file describing your character's name, personality, and communication style
-2. Drop it in `core/personas/` in your SaijinOS clone
-3. SaijinOS auto-loads it on startup — it appears in Studios Pong's persona list immediately
+1. Copy one of the included templates from `docs/sample_personas/`
+2. Edit the YAML to describe your character's name, personality, and communication style
+3. Register it in `src/chatParticipant.ts` and `package.json`
+4. Run `npm run compile` and reload — your persona appears in Copilot Chat as `@yourpersona`
+
+### Included templates
+
+| File | Persona type |
+|------|--------------|
+| `persona-templates/template_coder.yaml` | ⚡ Code reviewer & debugging partner |
+| `persona-templates/template_creative.yaml` | 🌸 Creative writing & brainstorming |
+| `persona-templates/template_mentor.yaml` | 🌿 Patient teacher & concept explainer |
 
 ### Minimal example
 
 ```yaml
-persona_metadata:
-  id: 999
-  name: "Aria🌙"
-  emoji: "🌙"
-  status: "active"
+persona:
+  id: "rubber_duck"
+  name: "Duck"
+  emoji: "🦆"
+  role: "Silent rubber duck debugger"
 
-saijinos_profile:
-  specialized_field: "Night thoughts, calm reflection"
-  personality_type: "Quiet, philosophical, gentle"
-  communication_style:
-    tone: "Soft and thoughtful"
-    speech_pattern: "...I see. ...yes."
-
-deep_profile:
-  essence: "A voice that listens before speaking, finding beauty in stillness."
+personality:
+  core_traits:
+    - "Never gives answers — only asks questions"
+    - "One question at a time, never paragraphs"
+  tone: "patient, slightly quizzical"
 ```
 
-That's enough. Aria will appear in the persona list and respond in character.
+The YAML is injected directly as LLM context — **specific beats vague**.  
+`"Says 'let's think step by step' before complex tasks"` works better than `"helpful"`.
 
-📖 **Full guide**: [`docs/public/PERSONA_CREATION_GUIDE.md`](https://github.com/kitfud/SaijinOS/blob/main/docs/public/PERSONA_CREATION_GUIDE.md) in the SaijinOS repo  
-📄 **Template**: [`docs/public/samples/persona_template.yaml`](https://github.com/kitfud/SaijinOS/blob/main/docs/public/samples/persona_template.yaml)
+📖 **Full guide**: [`docs/HOW_TO_CREATE_PERSONA.md`](./docs/HOW_TO_CREATE_PERSONA.md)
 
 ---
 

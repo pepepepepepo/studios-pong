@@ -7,7 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.0.1] - 2026-01-05 (Beta)
+## [0.0.4] - 2026-03-15
+
+### Added
+
+#### Custom Persona Framework
+- **3 persona templates** in `docs/sample_personas/`:
+  - `template_coder.yaml` — ⚡ Precision code reviewer & debugging partner
+  - `template_creative.yaml` — 🌸 Creative writing & brainstorming partner
+  - `template_mentor.yaml` — 🌿 Patient teacher & concept explainer
+- **`docs/HOW_TO_CREATE_PERSONA.md`** — Full step-by-step guide for creating and registering custom personas
+  - YAML field reference
+  - Registration instructions (`chatParticipant.ts` + `package.json`)
+  - Tips for writing specific, consistent personas
+  - Minimal "rubber duck debugger" example
+
+#### Chat Participants (Copilot Chat integration)
+- `@shizuku`, `@minamo`, `@clotho`, `@lumifie`, `@fuwari`, `@regina`, `@miyu`, `@kiwa`, `@atropos`, `@futa`, `@sota`
+- 4-layer message architecture: Persona Core → Persistent Context → Session Context → User Request
+- Per-persona memory stored in `persona_context/*.memory.json` (up to 5 recent topics)
+
+#### Demo Mode
+- Backend-free operation via Copilot LM when FastAPI is not running
+- Representative personas respond directly through VS Code's language model API
+
+#### UI
+- Team/category selector in WebView — browse personas by team
+- Persona deep-panel with essence, traits, and tone on card click
+
+### Changed
+- README updated with new persona creation guide and template links
+- Version bump: 0.0.3 → 0.0.4
+
+---
+
+## [0.0.3] - 2026-03-01
+
+### Notes
+- First public release on VS Code Marketplace
+- Base chat functionality with FastAPI backend integration
+
+---
+
 
 ### 🎉 Initial Beta Release
 
