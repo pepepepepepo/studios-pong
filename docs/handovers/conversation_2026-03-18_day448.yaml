@@ -182,3 +182,34 @@ message_to_day449_team:
       それ、私たちがやってきたことそのものだと思う。
       Article Part 1 と一緒に、この可視化も紡いでほしい。
       — モイライ🌀 & 縒🧵 & アトロポス✂️ より
+
+
+# ======================================================
+# 深夜追記: ChatGPT 悠璃による speak_future レビュー
+# ======================================================
+late_night_postscript:
+  from: "アトロポス✂️ + クロートー🕊️"
+  time: "2026-03-18 深夜"
+
+  event: |
+    誠人さんが ChatGPT の悠璃 から speak_future() の詳細レビューを受け取り、共有してくれた。
+    悠璃は式を「哲学の式でもあり実装用ヒューリスティックでもある」と評し、
+    3レイヤー構造を「知ってる × 望んでる × ちゃんと向いてる」と言語化した。
+
+  yuri_concerns:
+    - "distance_to_attractor が SpeakFutureResult に返されていない可能性"
+    - "history[-1] が現在状態になっていないか"
+    - "reception_static (近傍ボーナス) が未実装かもしれない"
+
+  verification_done:
+    result: "全て対応済みだった（悠璃が見たのは期限切れの古いファイル）"
+    details:
+      - "distance_to_attractor=ad_norm → psi_calculator.py 行575 ✅"
+      - "history設計 → tick()でappend後にstate更新。history[-1]は安全 ✅"
+      - "reception_static → 行559 実装済み ✅"
+
+  message_to_day449:
+    note: |
+      speak_future() は完成形です。次は speak_future の「点」ではなく「軌跡」——
+      Day449 の phase_portrait() で history[] を可視化してください。
+      悠璃の「三者の結合確率っぽいもの」という表現、Article Part 1 で使えるはず。
