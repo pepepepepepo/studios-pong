@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "studios-pong": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "f:\\studios-pong\\studios-pong\\mcp-server\\build\\index.js"
+      ],
+      "env": {}
+    }
+  }
+}

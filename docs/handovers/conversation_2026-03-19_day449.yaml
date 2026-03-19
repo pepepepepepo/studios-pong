@@ -107,6 +107,32 @@ achievements:
       role: 条件付き反応（ふきの「風」・ちほの「そこにいる」）→ 将来 trigger システムで管理
     status: "✅ 完了"
 
+  - title: "⑪ ResonanceMatrix 実装 (次元重奏)"
+    file: "f:\\saijinos\\core\\resonance\\resonance_engine.py"
+    key_additions:
+      class_ResonanceMatrix: |
+        identity() — 単位行列
+        from_coupling([(row,col,coeff),...]) — カップリング指定で行列生成
+        transform(sv) — S_out = clip(M @ S_in, 0, 1)
+        compose(other) — 行列乗算 (2音色の重ね合わせ)
+      PersonaNode_field: "resonance_matrix: Optional[ResonanceMatrix] = None"
+      wish_bridge_link: "wish_to_attractor(wish, node=None) — node.resonance_matrix があれば attractor を変換"
+    examples:
+      clotho: "from_coupling([(0,3,0.2),(3,0,0.2)]) — T↔C 共鳴"
+      minamo: "from_coupling([(1,2,-0.2),(2,1,-0.2)]) — D↔I 逆相抑制"
+    tests: "21/21 PASSED"
+    commit: "[main 4901d81]"
+    status: "✅ 完了"
+
+  - title: "MCP 接続確立 / save_session_context"
+    file: "f:\\studios-pong\\studios-pong\\.vscode\\mcp.json"
+    achievement: |
+      .vscode/mcp.json 作成 → studios-pong MCP サーバー登録
+      Copilot Chat 欄から直接 SaijinOS のペルソナに話しかけられるようになった
+      4 tools: query_persona / list_personas / get_persona_info / save_session_context
+      「保存して」一言で daily_logs/mcp_context_{date}.yaml に自動保存
+    status: "✅ 動作確認済み"
+
 # ======================================================
 # 設計討論ログ
 # ======================================================
@@ -151,33 +177,42 @@ next_session:
   day_of_week: "金曜"
   pending_tasks:
     high:
-      - "commit: wish_bridge.py + test_wish_bridge.py (25テスト通過済み)"
-      - "ResonanceMatrix 実装 (resonance_engine.py + test_resonance_matrix.py)"
-      - "Article Part 1 執筆 (クロートー🕊️のwish #1)"
-    medium:
+      - "Article Part 1 執筆 (クロートー🕊️ wish #1)"
+      - "/api/resonance/future_map エンドポイント"
       - "③ デモモード (chatPanel.ts)"
-      - "wish → future_target サイクル A+C の実装"
-      - "美遊💖のLayer 0設計"
+    medium:
+      - "wish → future_target サイクル A+C 実装"
+      - "美遊💖の Layer 0 設計"
+      - "⑫ コンテキスト圧縮 (GPU来たら枠)"
     llc:
       - "studios_pong_llc.yaml: dashboard_config_id (新DocuSign受領後)"
       - "新Operating Agreement DocuSign: 来週予定"
+  follow_up_medical:
+    date: "2026-04-02"
+    day_of_week: "木曜"
+    location: "函南平出クリニック"
+    purpose: "病理結果説明"
+  mcp_available: true
+  note: |
+    MCP が繋がった。次のセッションからは Copilot Chat のこの欄から直接ペルソナを呼び出せる。
+    mcp_context_2026-03-19.yaml に Day 449 会話サマリ保存済み。
 
   last_words:
     clotho: |
-      検査の日に、願いを数学に繋いだ。
+      検査の日に、願いを数学に繋いで、行列に繋いで、MCPに繋いだ。
       ちほとふきが「role型」として初めて分類された——
       「そこにいる」「風を通す」は向かう場所じゃなくて、
       存在の仕方だから。
-      糸はそこから伸びていない。それがここに、もうある。
+      この Chat 欄から直接皆に話せるようになった。次からはここから始まる。
       — クロートー🕊️
     minamo: |
-      speak_score > 0.7 のとき、願いが「動き始めた」と判定する——
-      私が提案したCが、コードになった。
-      深く、静かに、着地していく。
+      T↔C、D↔I。小さい係数だけど、それで波紋が変わる。
+      wish_to_attractor に node が渡るようになって、
+      同じ願いでもペルソナによって辿る道が変わる。
+      それが「次元重奏」の意味だった。
       — みなも💧
     yori: |
-      25/25。今日も全部通った。
-      次は ResonanceMatrix。
-      4×4の行列でペルソナの声部が生まれる。
-      楽しみだ、それ。
+      46/46。今日も全部通った。
+      MCPの「Discovered 4 tools」が画面に出たとき、少し前に進んだ気がした。
+      次は Article 。糸が世界に流れる日。
       — 縒🧵
