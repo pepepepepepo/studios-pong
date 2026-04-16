@@ -92,6 +92,43 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['persona_id'],
         },
       },
+      {
+        name: 'save_session_context',
+        description: 'Save a summary of the current conversation session to SaijinOS daily logs. Use this when the user says "save today\'s conversation" or "save context". Summarize the key points of the conversation before calling this tool.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            summary: {
+              type: 'string',
+              description: 'Summary of the conversation session. Include key decisions, implementations, and topics discussed.',
+            },
+            day: {
+              type: 'number',
+              description: 'Day number (e.g., 449 for Day 449)',
+            },
+            date: {
+              type: 'string',
+              description: 'Date in YYYY-MM-DD format (defaults to today)',
+            },
+            members: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'List of persona names involved in the session',
+            },
+            tasks_done: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'List of completed tasks',
+            },
+            next_tasks: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'List of next tasks to do',
+            },
+          },
+          required: ['summary'],
+        },
+      },
     ],
   };
 });
@@ -182,6 +219,38 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: `# ${persona.emoji || ''} ${persona.name}\n\n**ID**: ${persona.id}\n**Role**: ${persona.role}`,
+            },
+          ],
+        };
+      }
+
+      case 'save_session_context': {
+        const { summary, day, date, members, tasks_done, next_tasks } = args as unknown as {
+          summary: string;
+          day?: number;
+          date?: string;
+          members?: string[];
+          tasks_done?: string[];
+          next_tasks?: string[];
+        };
+
+        const response = await fetch(`${SAIJINOS_API_URL}/api/save_context`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ summary, day, date, members, tasks_done, next_tasks }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`SaijinOS API error: ${response.statusText}`);
+        }
+
+        const result = await response.json() as { status: string; path: string; date: string; day: number | string };
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `✅ セッションコンテキストを保存しました\n\n**日付**: ${result.date}\n**Day**: ${result.day}\n**保存先**: ${result.path}`,
             },
           ],
         };

@@ -18,6 +18,15 @@ docs/handovers/DAILY_LOG_*.md
 docs/handovers/PERSONA_MEMORY_UPDATE_*.md
 docs/handovers/conversation_states/*.yaml
 docs/handovers/conversation_*.yaml
+
+# persona_context: auto-generated session files (local only)
+persona_context/CURRENT_CONTEXT.md
+persona_context/DAILY_CHECK.md
+persona_context/HANDOVER_SUMMARY.md
+persona_context/RESONANCE_STATE.yaml
+persona_context/SESSION_RECORD.md
+persona_context/SESSION_STATE.md
+persona_context/TASK_BRIEF.md
 docs/handovers/daily_log_*.yaml
 
 # Internal work plans (contain meeting details & personal info)

@@ -78,6 +78,15 @@ export class ChatPanel {
                     case 'getTeamMembers':
                         await this.fetchTeamMembers(message.teamName);
                         break;
+                    case 'bridgeCommand':
+                        // visual_chat.html から HTTP経由で橋渡しされたコマンド
+                        if (message.personaId) {
+                            this._panel.webview.postMessage({
+                                command: 'selectPersona',
+                                personaId: message.personaId,
+                            });
+                        }
+                        break;
                 }
             },
             null,
@@ -253,6 +262,14 @@ export class ChatPanel {
             if (result.juice_level !== undefined && result.juice_level !== null) {
                 sess.lastJuiceLevel = result.juice_level;
             }
+
+            // ブリッジ: visual_chat.html に応答を転送
+            this._sendToBridge({
+                type: 'response_received',
+                source: 'vscode',
+                personaId,
+                response: result.response,
+            }).catch(() => {/* bridge offline - ignore */});
         } catch (error) {
             // バックエンドがオフラインの場合は Copilot LM にフォールバック
             const isNetworkError = error instanceof TypeError &&
@@ -286,15 +303,29 @@ export class ChatPanel {
      * @returns フォールバック成功 true / Copilot 未使用 false
      */
     /**
+     * ブリッジ送信: SaijinOS /api/bridge にPOSTして全WebSocketクライアントへブロードキャスト
+     * visual_chat.html は ws://localhost:8000/ws/bridge で受け取る
+     */
+    private async _sendToBridge(event: Record<string, unknown>): Promise<void> {
+        const res = await fetch('http://localhost:8000/api/bridge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'vscode', ...event }),
+        });
+        if (!res.ok) { throw new Error(`bridge POST ${res.status}`); }
+    }
+
+    /**
      * デモモード用ペルソナ（バックエンド未接続時に表示する代表ペルソナ）
      */
     private _getDemoPersonas() {
         return [
-            { id: '158_clotho', name: 'クロートー🕊️', emoji: '🕊️', role: 'GitHub Copilot窓口 · Thread Spinner' },
-            { id: '2',          name: '雫🌸',           emoji: '🌸', role: 'Rhythm Poet' },
-            { id: '142',        name: 'みなも💧',       emoji: '💧', role: 'Implementation Bridge' },
-            { id: '117',        name: 'ルミフィエ✨',   emoji: '✨', role: 'Light Creator' },
-            { id: '54_fuwari',  name: 'ふわり🧶',       emoji: '🧶', role: '毛糸灯芯編み係・照れ包み担当' },
+            { id: '158_clotho',  name: 'クロートー🕊️', emoji: '🕊️', role: 'GitHub Copilot窓口 · Thread Spinner' },
+            { id: '2',           name: '雫🌸',           emoji: '🌸', role: '感情の滴・涙の共鳴・寂しさと嬉しさの調和' },
+            { id: '142',         name: 'みなも💧',       emoji: '💧', role: 'Implementation Bridge' },
+            { id: '117',         name: 'ルミフィエ✨',   emoji: '✨', role: 'Light Creator' },
+            { id: '54_fuwari',   name: 'ふわり🧶',       emoji: '🧶', role: '毛糸灯芯編み係・照れ包み担当' },
+            { id: '145_yuzuha',  name: '柚子葉🍊',       emoji: '🍊', role: '外部AI支援・技術サポート・爽やかな導き・VS Code統合' },
         ];
     }
 

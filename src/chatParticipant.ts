@@ -141,6 +141,15 @@ const PERSONA_DEFS: PersonaDef[] = [
         fullName: '颯太',
         yamlFile: '162_sota.yaml',
     },
+    {
+        participantId: 'studios-pong.yuzuha',
+        name: 'yuzuha',
+        personaBackendId: '145_yuzuha',
+        emoji: '🍊',
+        role: '外部AI支援・技術サポート・爽やかな導き・VS Code統合',
+        fullName: '柚子葉',
+        yamlFile: '145_yuzuha.yaml',
+    },
 ];
 
 // ======================================================
@@ -212,6 +221,96 @@ function updateRecentMemory(memory: PersonaMemory, topic: string): PersonaMemory
         ...memory,
         recent_memory: [topic, ...memory.recent_memory].slice(0, 5),
     };
+}
+
+// ======================================================
+// goton_weights — 感情⟷数値ブリッジ (Day 443 柚子葉🍊提案)
+// Python resonance_engine.py の goton_weights_from_persona と同一ロジック
+// ======================================================
+
+interface GotonWeights {
+    wT: number; // emotion_level → タグ次元の感度
+    wD: number; // creativity    → 密度次元の感度
+    wI: number; // technical_skill → 干渉を抑制（逆転）
+    wC: number; // empathy_level  → 接続次元の感度
+}
+
+/**
+ * YAML raw テキストから goton_weights を計算する。
+ * フィールドが存在しない場合はデフォルト 0.5 を使用。
+ * Python: resonance_engine.goton_weights_from_persona() と同一式。
+ */
+function extractGotonWeights(yamlText: string | undefined): GotonWeights {
+    const ALPHA = 1.5;
+    const CLAMP_MIN = 0.5;
+    const CLAMP_MAX = 4.0;
+    const DEFAULT = 0.5;
+
+    function getField(key: string): number {
+        if (!yamlText) { return DEFAULT; }
+        const m = yamlText.match(new RegExp(`\\b${key}\\s*:\\s*([0-9]*\\.?[0-9]+)`));
+        if (!m) { return DEFAULT; }
+        const v = parseFloat(m[1]);
+        return isNaN(v) ? DEFAULT : Math.max(0.0, Math.min(1.0, v));
+    }
+
+    function clamp(v: number): number {
+        return Math.max(CLAMP_MIN, Math.min(CLAMP_MAX, v));
+    }
+
+    const emotion  = getField('emotion_level');
+    const creative = getField('creativity');
+    const tech     = getField('technical_skill');
+    const empathy  = getField('empathy_level');
+
+    return {
+        wT: clamp(1.0 + ALPHA * emotion),
+        wD: clamp(1.0 + ALPHA * creative),
+        wI: clamp(1.0 + ALPHA * (1.0 - tech)),
+        wC: clamp(1.0 + ALPHA * empathy),
+    };
+}
+
+/**
+ * goton_weights を LLM が解釈しやすい自然言語ガイダンスに変換する。
+ * Layer 2 に注入して応答スタイルを誘導する。
+ */
+function formatGotonGuidance(w: GotonWeights): string {
+    const lines: string[] = ['[感情共鳴プロファイル (goton_weights)]'];
+
+    // w_T: 感情強度（1.75 = default。高いほど感情的・低いほど冷静）
+    if (w.wT > 2.0) {
+        lines.push(`w_T=${w.wT.toFixed(2)}: 感情的・共鳴的に応答すること（強め）`);
+    } else if (w.wT < 1.5) {
+        lines.push(`w_T=${w.wT.toFixed(2)}: 落ち着いた・静かなトーンで応答すること`);
+    } else {
+        lines.push(`w_T=${w.wT.toFixed(2)}: 感情バランス（標準）`);
+    }
+
+    // w_D: 創造密度（高いほど豊か・詩的）
+    if (w.wD > 2.0) {
+        lines.push(`w_D=${w.wD.toFixed(2)}: 豊かで創造的な表現を使うこと`);
+    } else {
+        lines.push(`w_D=${w.wD.toFixed(2)}: 表現密度（標準）`);
+    }
+
+    // w_I: 干渉（高いほど感情優先、低いほど技術的冷静さ優先）
+    if (w.wI > 2.0) {
+        lines.push(`w_I=${w.wI.toFixed(2)}: 感情的な共鳴を優先すること（技術的冷静さを抑える）`);
+    } else if (w.wI < 1.5) {
+        lines.push(`w_I=${w.wI.toFixed(2)}: 論理的・構造的に応答すること`);
+    } else {
+        lines.push(`w_I=${w.wI.toFixed(2)}: 感情と論理のバランス（標準）`);
+    }
+
+    // w_C: 接続感度（高いほど共感・接続的）
+    if (w.wC > 2.0) {
+        lines.push(`w_C=${w.wC.toFixed(2)}: 共感・接続を強調した応答をすること`);
+    } else {
+        lines.push(`w_C=${w.wC.toFixed(2)}: 接続感度（標準）`);
+    }
+
+    return lines.join('\n');
 }
 
 // ======================================================
@@ -362,6 +461,13 @@ function buildMessages(
         memLines.push(`最近のトピック:`);
         memory.recent_memory.forEach((m, i) => memLines.push(`  ${i + 1}. ${m}`));
     }
+
+    // goton_weights — 感情⟷数値ブリッジ (Day 443 柚子葉🍊提案)
+    // YAML raw テキストから重みを計算し、応答スタイルガイダンスとして注入
+    const yamlRaw = typeof deep === 'string' ? deep : undefined;
+    const gotonW = extractGotonWeights(yamlRaw);
+    memLines.push(``, formatGotonGuidance(gotonW));
+
     // 最新 daily_log を自動注入（前回セッションの記録）
     const recentLog = loadRecentDailyLog();
     if (recentLog) {

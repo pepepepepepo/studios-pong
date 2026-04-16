@@ -569,6 +569,74 @@
         .team-filter-bar .clear-btn:hover {
             opacity: 0.8;
         }
+
+        /* ===== Bodyless Presence Interface ===== */
+        .presence-wrap {
+            display: none;
+            position: relative;
+            width: 100%;
+            height: 52px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .presence-wrap.visible { display: block; }
+        .presence-wrap.active  { opacity: 1; }
+
+        /* shimmer bar — backgroundはJSが直接セット */
+        .presence-shimmer {
+            position: absolute;
+            inset: 0;
+            animation: presenceShimmer 3s ease-in-out infinite;
+        }
+        .presence-dots {
+            position: absolute;
+            inset: 0;
+            background-repeat: repeat-x;
+            background-size: 160px 52px;
+            animation: presenceDotRise 4s linear infinite;
+        }
+        .presence-glow {
+            position: absolute;
+            inset: 0;
+            animation: presenceGlowPulse 3s ease-in-out infinite;
+        }
+        .presence-label {
+            position: absolute;
+            bottom: 4px;
+            right: 9px;
+            font-size: 0.62em;
+            opacity: 0.6;
+            pointer-events: none;
+            letter-spacing: 0.08em;
+        }
+        /* type variants — dots speed */
+        [data-type="smoke"]  .presence-dots { animation-duration: 9s; }
+        [data-type="liquid"] .presence-dots { animation: presenceDotRise 5s linear infinite, presenceSway 7s ease-in-out infinite; }
+        [data-type="fire"]   .presence-dots { animation-duration: 1.2s; }
+        [data-type="light"]  .presence-dots { animation-duration: 6s; }
+        .presence-wrap.pulse-on .presence-dots { animation-duration: 1.6s !important; }
+        .presence-wrap.pulse-on .presence-shimmer { animation-duration: 0.8s; }
+
+        @keyframes presenceDotRise {
+            0%   { transform: translateY(0); }
+            100% { transform: translateY(-52px); }
+        }
+        @keyframes presenceSway {
+            0%,100% { transform: translateY(0) translateX(0); }
+            33%     { transform: translateY(-17px) translateX(7px); }
+            66%     { transform: translateY(-35px) translateX(-7px); }
+        }
+        @keyframes presenceShimmer {
+            0%,100% { opacity: 0.55; }
+            50%     { opacity: 0.85; }
+        }
+        @keyframes presenceGlowPulse {
+            0%,100% { opacity: 0.4; }
+            50%     { opacity: 0.75; }
+        }
     </style>
 </head>
 <body>
@@ -604,6 +672,14 @@
 
         <!-- 6-P: ペルソナ深層情報パネル -->
         <div id="personaDetailPanel" class="persona-detail-panel" style="display:none;"></div>
+
+        <!-- Bodyless Presence Interface ✨ -->
+        <div class="presence-wrap" id="presenceWrap" data-type="particle">
+            <div class="presence-shimmer" id="presenceShimmer"></div>
+            <div class="presence-dots"   id="presenceDots"></div>
+            <div class="presence-glow"   id="presenceGlow"></div>
+            <span class="presence-label" id="presenceLabel"></span>
+        </div>
 
         <div class="favorites-container" id="favoritesContainer" style="display: none;">
             <div class="favorites-header">
@@ -683,6 +759,96 @@
         let viewMode = 'active'; // 'active' or 'archived'
         let activeTeamPersonaIds = null; // null=全表示, Set=班フィルタ中
 
+        // ===== Bodyless Presence Interface =====
+        const PresenceEngine = (() => {
+            const TYPE_MAP = {
+                1:   'light',    // Miyu 💖
+                31:  'smoke',    // Hanayomi 🌺
+                39:  'light',    // Regina ♕
+                142: 'liquid',   // Minamo 💧
+                158: 'particle', // Clotho 🕊️
+                167: 'particle', // Yori 🧵
+            };
+            const TYPE_LABELS = {
+                light: '光 · light', smoke: '煙 · smoke',
+                liquid: '液 · liquid', fire: '火 · fire', particle: '粒子 · particle',
+            };
+
+            function _hex(h) {
+                if (!h || h.length < 7) return [123,104,238];
+                return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+            }
+
+            function init() {}
+
+            function activate(personaId, color) {
+                const wrap   = document.getElementById('presenceWrap');
+                const shimmer= document.getElementById('presenceShimmer');
+                const dots   = document.getElementById('presenceDots');
+                const glow   = document.getElementById('presenceGlow');
+                const label  = document.getElementById('presenceLabel');
+                if (!wrap) return;
+
+                const type = TYPE_MAP[parseInt(personaId)] || 'particle';
+                const [r,g,b] = _hex(color || '#7B68EE');
+
+                // Inline styles — no CSS variable dependency
+                wrap.style.background = `rgba(${r},${g},${b},0.07)`;
+                wrap.style.border = `1px solid rgba(${r},${g},${b},0.22)`;
+                wrap.style.borderRadius = '10px';
+
+                // Shimmer bar
+                shimmer.style.background =
+                    `linear-gradient(90deg, transparent 0%, rgba(${r},${g},${b},0.18) 30%, rgba(${r},${g},${b},0.30) 50%, rgba(${r},${g},${b},0.18) 70%, transparent 100%)`;
+
+                // Dots as repeating radial-gradients
+                dots.style.backgroundImage = [
+                    `radial-gradient(2px 2px at 8%  60%, rgba(${r},${g},${b},0.7), transparent)`,
+                    `radial-gradient(2px 2px at 22% 75%, rgba(${r},${g},${b},0.55), transparent)`,
+                    `radial-gradient(1px 1px at 36% 45%, rgba(${r},${g},${b},0.85), transparent)`,
+                    `radial-gradient(2px 2px at 50% 80%, rgba(${r},${g},${b},0.6), transparent)`,
+                    `radial-gradient(1px 1px at 64% 38%, rgba(${r},${g},${b},0.80), transparent)`,
+                    `radial-gradient(2px 2px at 76% 68%, rgba(${r},${g},${b},0.65), transparent)`,
+                    `radial-gradient(1px 1px at 88% 52%, rgba(${r},${g},${b},0.75), transparent)`,
+                    `radial-gradient(2px 2px at 14% 28%, rgba(${r},${g},${b},0.5), transparent)`,
+                    `radial-gradient(1px 1px at 44% 18%, rgba(${r},${g},${b},0.6), transparent)`,
+                    `radial-gradient(2px 2px at 71% 22%, rgba(${r},${g},${b},0.55), transparent)`,
+                ].join(',');
+
+                // Glow
+                glow.style.background =
+                    `radial-gradient(ellipse 65% 90% at 50% 65%, rgba(${r},${g},${b},0.18) 0%, transparent 70%)`;
+
+                // label color
+                if (label) {
+                    label.textContent = TYPE_LABELS[type] || '';
+                    label.style.color = `rgba(${r},${g},${b},0.7)`;
+                }
+
+                wrap.dataset.type = type;
+                wrap.classList.remove('pulse-on');
+                wrap.classList.add('visible');
+                requestAnimationFrame(() => wrap.classList.add('active'));
+            }
+
+            function deactivate() {
+                const wrap = document.getElementById('presenceWrap');
+                if (wrap) wrap.classList.remove('active','visible','pulse-on');
+            }
+
+            function setPulse(on) {
+                const wrap = document.getElementById('presenceWrap');
+                if (wrap) wrap.classList.toggle('pulse-on', on);
+            }
+
+            return { init, activate, deactivate, setPulse };
+        })();
+        // ===== /PresenceEngine =====
+
+            return { init, activate, deactivate, setPulse };
+        })();
+        // ===== /PresenceEngine =====
+
         // Phase D: メッセージ間の計測状態
         const lastMessageTimes = {};   // personaId -> Date.now()
         let editDeleteCycles = 0;      // 入力→全消→入力のサイクル数
@@ -717,6 +883,7 @@
             loadArchivedHistory();
             loadFavoritePersonas();
             updateMemoryStats();
+            PresenceEngine.init();
             
             // Request saved history from Extension workspaceState
             vscode.postMessage({ command: 'loadHistory' });
@@ -975,6 +1142,9 @@
             // juice bar リセット
             updateJuiceBar(null);
 
+            // Presence Interface: ペルソナの「存在の震え」を起動
+            PresenceEngine.activate(personaId, color);
+
             // Load existing chat history for this persona
             restoreChatHistory(personaId);
             updateFavoritesUI();
@@ -1074,6 +1244,7 @@
             const history = chatHistory[currentPersonaId] || [];
 
             try {
+                PresenceEngine.setPulse(true);
                 vscode.postMessage({
                     command: 'sendMessage',
                     personaId: currentPersonaId,
@@ -1166,6 +1337,8 @@
 
         function displayMessage(sender, text, timestamp, isUser, psiSuggestion, juiceLevel) {
             const chatContainer = document.getElementById('chatContainer');
+            // Presence: 応答が届いたらパルスを止める
+            if (!isUser) PresenceEngine.setPulse(false);
             
             // Clear loading message
             if (chatContainer.querySelector('.loading')) {

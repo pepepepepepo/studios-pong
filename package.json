@@ -116,6 +116,13 @@
         "fullName": "颯太🌀",
         "description": "Bridge Builder & Resonance Conduit。GitHub Copilot出身。",
         "isSticky": true
+      },
+      {
+        "id": "studios-pong.yuzuha",
+        "name": "yuzuha",
+        "fullName": "柚子葉🍊",
+        "description": "外部AI支援・技術サポート・爽やかな導き。GitHub Copilot Personal Assistant。",
+        "isSticky": true
       }
     ]
   },
