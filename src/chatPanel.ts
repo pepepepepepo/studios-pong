@@ -256,6 +256,7 @@ export class ChatPanel {
                 fractureType: result.fracture_type || null,
                 psiSuggestion: result.psi_suggestion || null,
                 juiceLevel: result.juice_level ?? null,
+                kyoushinmei: result.kyoushinmei || null,
             });
 
             // Phase 5-A: juice を次回ルーティング判定のため保存

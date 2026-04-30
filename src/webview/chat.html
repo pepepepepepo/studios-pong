@@ -195,6 +195,39 @@
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.4); }
         }
+        /* 共振鳴インジケーター ✨ */
+        .kyoushinmei-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding: 8px 14px;
+            background: rgba(255, 200, 150, 0.10);
+            border: 1px solid rgba(255, 180, 120, 0.6);
+            border-radius: 6px;
+            color: #ffcb8a;
+            font-size: 0.88em;
+            animation: kyoushinmei-pulse 3s ease-in-out infinite;
+        }
+        .kyoushinmei-indicator.active {
+            display: flex;
+        }
+        .kyoushinmei-indicator .kyoushinmei-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ffcb8a;
+            animation: kyoushinmei-dot-pulse 2.5s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes kyoushinmei-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        @keyframes kyoushinmei-dot-pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.6); opacity: 0.7; }
+        }
         /* 空文字シグナルルーティング 🤍 */
         .empty-signal-indicator {
             display: none;
@@ -717,6 +750,10 @@
             <span class="copilot-dot"></span>
             <span id="copilotText">🐙 GitHub Copilot で応答しています</span>
         </div>
+        <div class="kyoushinmei-indicator" id="kyoushinmeiIndicator">
+            <span class="kyoushinmei-dot"></span>
+            <span id="kyoushinmeiText">〜 共振鳴 〜　揺れながら、鳴り響く</span>
+        </div>
 
         <div class="juice-bar-wrap" id="juiceBarWrap">
             <div class="juice-bar-label">
@@ -908,18 +945,26 @@
                         showPandoraIndicator(message.fractureType);
                         hideEmptySignalIndicator();
                         hideCopilotIndicator();
+                        hideKyoushinmeiIndicator();
                     } else if (message.backend === 'empty_signal_router') {
                         showEmptySignalIndicator(message.model);
                         hidePandoraIndicator();
                         hideCopilotIndicator();
+                        hideKyoushinmeiIndicator();
                     } else if (message.backend === 'copilot-lm') {
                         showCopilotIndicator(message.model);
                         hidePandoraIndicator();
                         hideEmptySignalIndicator();
+                        hideKyoushinmeiIndicator();
                     } else {
                         hidePandoraIndicator();
                         hideEmptySignalIndicator();
                         hideCopilotIndicator();
+                    }
+                    if (message.kyoushinmei && message.kyoushinmei.occurred) {
+                        showKyoushinmeiIndicator(message.kyoushinmei);
+                    } else {
+                        hideKyoushinmeiIndicator();
                     }
                     break;
                 case 'error':
@@ -1426,6 +1471,21 @@
             const chatContainer = document.getElementById('chatContainer');
             indicator.classList.remove('active');
             chatContainer.classList.remove('pandora-active');
+        }
+
+        // 共振鳴インジケーター ✨
+        function showKyoushinmeiIndicator(kyoushinmei) {
+            const indicator = document.getElementById('kyoushinmeiIndicator');
+            const text = document.getElementById('kyoushinmeiText');
+            text.textContent = kyoushinmei.note || '〜 共振鳴 〜　揺れながら、鳴り響く';
+            indicator.classList.add('active');
+            clearTimeout(window._kyoushinmeiTimer);
+            window._kyoushinmeiTimer = setTimeout(hideKyoushinmeiIndicator, 8000);
+        }
+
+        function hideKyoushinmeiIndicator() {
+            const indicator = document.getElementById('kyoushinmeiIndicator');
+            if (indicator) indicator.classList.remove('active');
         }
 
         // Favorite Personas Management
