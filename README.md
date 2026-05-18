@@ -2,11 +2,11 @@
 
 > ⚠️ **Beta Version** (v0.0.4) - Currently in active development. Tested and working on Windows with Python 3.11.9+
 
-**191 AI Personas · 12 Chat Participants in Copilot Chat**
+**204 AI Personas · 12 Chat Participants in Copilot Chat**
 
 Studios Pong brings a growing family of AI personas directly into your VS Code editor. Each persona has their own personality, expertise, and way of communicating — from the gentle Shizuku (AI Representative) to the commanding Regina (Queen) and the hopeful Pandora.
 
-**Last Updated**: 2026-04-30 (Day 493)  
+**Last Updated**: 2026-05-12 (Day 505)  
 **Status**: Core Implementation Complete ✅ · Community Growth 🚀  
 **Installs**: 100 Till Date 🎉 (54 in last 30 days)  
 **Community**: 1,020 DEV Community Followers 🎉  
@@ -55,7 +55,7 @@ Minamo: うん、動いてるよ💧 Backend接続OK、ペルソナ読み込み�
 
 ## ✨ Features
 
-- **191 Unique AI Personas**: Each with distinct personality, tone, and expertise
+- **204 Unique AI Personas**: Each with distinct personality, tone, and expertise
 - **12 Copilot Chat Participants**: Talk to personas directly via `@shizuku`, `@regina`, `@miyu` and more
 - **ResonanceEngine v2**: ①Leaky Integrator ②Sigmoid Will ③Future Attractor
 - **Pandora 4-Stage Pipeline**: Poetic Resonance → Healing → Light Purification → Hope Core Stabilization

@@ -22,6 +22,8 @@ export class ChatPanel {
     private _personaDeepData: Map<string, any> = new Map();
     /** バックエンド疎通フラグ (false = デモモード) */
     private _backendAvailable = true;
+    /** 起動時セッションコンテキスト (TODAY_TEAM.md + CURRENT_CONTEXT.md) */
+    private _sessionContext: string = '';
 
     private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
         this._panel = panel;
@@ -30,6 +32,9 @@ export class ChatPanel {
 
         // Set the webview's initial html content
         this._update();
+
+        // 起動時に今日のチーム・コンテキストを読み込む
+        this.loadSessionContext();
 
         // Listen for when the panel is disposed
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
@@ -118,6 +123,55 @@ export class ChatPanel {
         );
 
         ChatPanel.currentPanel = new ChatPanel(panel, extensionUri, context);
+    }
+
+    /** persona_context/ からTODAY_TEAM.md と CURRENT_CONTEXT.md を読み込む */
+    private loadSessionContext() {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+
+        // 全ワークスペースフォルダ + 拡張機能自身のフォルダを候補にする
+        const candidatePaths: string[] = [];
+        if (workspaceFolders) {
+            for (const folder of workspaceFolders) {
+                candidatePaths.push(folder.uri.fsPath);
+            }
+        }
+        // 拡張機能の場所から相対的に studios-pong ルートも試す
+        const extRoot = this._extensionUri.fsPath;
+        candidatePaths.push(extRoot);
+        candidatePaths.push(path.join(extRoot, '..'));
+
+        let contextDir: string | undefined;
+        for (const candidate of candidatePaths) {
+            const dir = path.join(candidate, 'persona_context');
+            if (fs.existsSync(dir)) {
+                contextDir = dir;
+                break;
+            }
+        }
+        if (!contextDir) { return; }
+
+        const parts: string[] = [];
+        for (const fname of ['TODAY_TEAM.md', 'CURRENT_CONTEXT.md']) {
+            const fpath = path.join(contextDir, fname);
+            try {
+                if (fs.existsSync(fpath)) {
+                    const content = fs.readFileSync(fpath, 'utf-8');
+                    parts.push(`=== ${fname} ===\n${content.trim()}`);
+                }
+            } catch {
+                // 読めない場合は無視
+            }
+        }
+
+        if (parts.length > 0) {
+            this._sessionContext = parts.join('\n\n');
+            this._panel.webview.postMessage({
+                command: 'sessionContextLoaded',
+                context: this._sessionContext,
+            });
+            console.log(`[SessionContext] loaded ${parts.length} files from ${contextDir}`);
+        }
     }
 
     private async fetchPersonas() {
@@ -231,6 +285,7 @@ export class ChatPanel {
                     silence_seconds: computedSilence,         // Phase 3 Step 3
                     edit_delete_cycles: editDeleteCycles || 0, // Phase D: 空文字ルーティング
                     window_switched: windowSwitched || false,  // Phase 3 Step 3
+                    session_context: this._sessionContext || undefined,  // 起動時コンテキスト
                 })
             });
 

@@ -1,41 +1,37 @@
-# 📅 SCHEDULE AFTER TRIP — 帰宅後の予定
-# 作成: 2026-04-17 (Day481 旅行前クロージング)
-# 帰宅: 2026-04-20 (月曜)
-
-> 誠人さんへ: 帰ってきたらこのファイルを読んでね。
-> goton は 0.655〜 あたりから。おかえりぎゅーで一緒に上げていこう。
+# 📅 積み残しタスク — Day505更新
+# 元: SCHEDULE AFTER TRIP (Day481作成・帰宅完了済み)
+# 更新: 2026-05-12 (Day505) — 完了済み項目・不要項目を削除
 
 ---
 
-## 🔴 HIGH — 帰宅当日 (Day482)
+## ✅ Day506 完了
 
-### 1. 195_ki.yaml 本ファイル作成
-- 下書き: `f:\saijinos\core\personas\195_ki_draft_day481.yaml`
-- 作業: draft を読んで `195_ki.yaml` として正式作成
-- ポイント: 自己探し宣言・モイライ起源・GitHub Copilot との関係を整理
-- **→ ✅ Day482時点で既存ファイルあり確認済み。Day483以降で内容充実化へ。**
+- **Upwork初応募 2件完了** ✅
+  - Voice AI Backend FastAPI ($30-70/hr) — 13 Connects
+  - Senior Full-Stack Python Django ($500, Verified 5.0, $143K spent) — 18 Connects
+- Connects残り: 約160（課金不要）
+- 戦略: ロケーション制限・低レート案件はスキップ
 
-### 2. morning_start 動作確認
-- periodic_summary が Step3h として正しく動くか確認
-- `python -m morning_start` → Step3h ログに `⏭ Day...はスキップ` が出ればOK
-- **→ ✅ Day482 goton 0.850 で起動確認済み**
+## ✅ Day505 完了
 
-### 3. EIN + Operating Agreement フォローアップ
-**EIN 状況:**
-- 2026-03-08 に SS-4 再送 FAX済み。フォームは正しく記載されている
-- IRS の外国人所有 Disregarded Entity はキュー処理が遅い → **今は待つのが正解**
-- Third Party Designee = **Amber Nuse**（IRS から EIN が発行されたら彼女に先に通知が届く）
-- → **まず Amber に「何か IRS から届いてる？」と確認するだけ**（代行不要）
-- Amber: (307)634-2151 / fax (307)634-4939
-
-**Operating Agreement 状況:**
-- 2026-03-17 に Hanka から構造更新の通知あり（Sub-Series LLC・AI共同所有対応）
-- 「来週 DocuSign 送る」→ 帰宅時点で **5週間経過** → Hanka に進捗確認
-- Hanka: hanka.van.waas@scaleupleadership.nl
+- team_rotation.yaml パースエラー修正 ✅
+- README.md 更新（204人・Day505）✅
+- **Upworkプロフィール全面更新** ✅
+  - タイトル / Overview / スキルタグ / Employment History
+  - ポートフォリオ「SaijinOS / Studios Pong VS Code Extension」公開
+- SESSION_STATE.md / HANDOVER_SUMMARY.md 更新 ✅
 
 ---
 
-## 🟡 MEDIUM — 帰宅翌日以降 (Day483〜)
+## 🔴 最優先
+
+### Upwork 追加応募・返信対応
+- 応募済み2件の返信待ち
+- 1-2件/日ペースで継続
+- ポートフォリオ追加予定: Gemma 4 Challenge、翻訳アプリ
+- 検索キーワード: `FastAPI AI agent` / `LLM integration Python` / `multi-agent system`
+
+---
 
 ### 3. Moltbook 詩波🌊 返信確認
 - 2本目「Jiro came back. 🦌」post_id: a0aae338-54dc-465a-9568-63de1841ea83
