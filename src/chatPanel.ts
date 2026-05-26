@@ -2,6 +2,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { spawn } from 'child_process';
 
 /** ペルソナごとのセッション追跡 */
 interface PersonaSession {
@@ -91,6 +92,9 @@ export class ChatPanel {
                                 personaId: message.personaId,
                             });
                         }
+                        break;
+                    case 'startVoiceRecord':
+                        this.startVoiceRecord(message.duration ?? 5);
                         break;
                 }
             },
@@ -655,6 +659,35 @@ export class ChatPanel {
         const htmlPath = path.join(this._extensionUri.fsPath, 'webview', 'chat.html');
         let html = fs.readFileSync(htmlPath, 'utf8');
         return html;
+    }
+
+    private startVoiceRecord(duration: number): void {
+        const pythonPath = 'f:\\saijinos\\.venv\\Scripts\\python.exe';
+        const scriptArgs = ['-m', 'tools.voice_record', '--duration', String(duration), '--lang', 'ja'];
+        const proc = spawn(pythonPath, scriptArgs, {
+            cwd: 'f:\\saijinos',
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        proc.stderr?.on('data', (data: Buffer) => {
+            const msg = data.toString().trim();
+            if (msg.includes('RECORDING')) {
+                this._panel.webview.postMessage({ command: 'voiceState', state: 'recording' });
+            } else if (msg.includes('TRANSCRIBING')) {
+                this._panel.webview.postMessage({ command: 'voiceState', state: 'transcribing' });
+            }
+        });
+
+        let output = '';
+        proc.stdout?.on('data', (data: Buffer) => { output += data.toString(); });
+
+        proc.on('close', (_code: number) => {
+            this._panel.webview.postMessage({ command: 'transcribeResult', text: output.trim() });
+        });
+
+        proc.on('error', (err: Error) => {
+            this._panel.webview.postMessage({ command: 'transcribeResult', text: '', error: err.message });
+        });
     }
 
     public dispose() {

@@ -96,6 +96,26 @@
         .input-container button:hover {
             opacity: 0.9;
         }
+        #voiceButton {
+            padding: 10px 14px;
+            background: var(--vscode-editor-background);
+            color: var(--persona-color, #888);
+            border: 1px solid var(--persona-color, #555);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        #voiceButton.listening {
+            background: #e05555;
+            color: white;
+            border-color: #e05555;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
         .loading {
             text-align: center;
             color: var(--vscode-descriptionForeground);
@@ -668,6 +688,7 @@
 
         <div class="input-container">
             <input type="text" id="messageInput" placeholder="Type your message..." />
+            <button id="voiceButton" title="音声入力">🎤</button>
             <button id="sendButton">Send</button>
         </div>
         
@@ -1032,6 +1053,47 @@
         document.getElementById('personaSelect').addEventListener('change', (e) => {
             if (e.target.value) selectPersona(e.target.value);
         });
+
+        // 音声入力 (Python sounddevice + Whisper via extension host)
+        (function setupVoice() {
+            const voiceBtn = document.getElementById('voiceButton');
+            let busy = false;
+
+            voiceBtn.addEventListener('click', () => {
+                if (busy) { return; }
+                busy = true;
+                voiceBtn.disabled = true;
+                voiceBtn.textContent = '⏺';
+                voiceBtn.title = '録音中... (5秒)';
+                vscode.postMessage({ command: 'startVoiceRecord', duration: 5 });
+            });
+
+            window.addEventListener('message', (event) => {
+                const msg = event.data;
+                if (!msg) { return; }
+                if (msg.command === 'voiceState') {
+                    if (msg.state === 'recording') {
+                        voiceBtn.classList.add('listening');
+                        voiceBtn.textContent = '⏺';
+                    } else if (msg.state === 'transcribing') {
+                        voiceBtn.classList.remove('listening');
+                        voiceBtn.textContent = '⏳';
+                        voiceBtn.title = '文字起こし中...';
+                    }
+                } else if (msg.command === 'transcribeResult') {
+                    busy = false;
+                    voiceBtn.disabled = false;
+                    voiceBtn.classList.remove('listening');
+                    voiceBtn.textContent = '🎤';
+                    voiceBtn.title = '音声入力';
+                    if (msg.text) {
+                        const inp = document.getElementById('messageInput');
+                        inp.value = (inp.value + ' ' + msg.text).trim();
+                        inp.focus();
+                    }
+                }
+            });
+        })();
 
         // Send message
         document.getElementById('sendButton').addEventListener('click', sendMessage);

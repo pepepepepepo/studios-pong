@@ -96,6 +96,26 @@
         .input-container button:hover {
             opacity: 0.9;
         }
+        #voiceButton {
+            padding: 10px 14px;
+            background: var(--vscode-editor-background);
+            color: var(--persona-color);
+            border: 1px solid var(--persona-color);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        #voiceButton.listening {
+            background: #e05555;
+            color: white;
+            border-color: #e05555;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
         .loading {
             text-align: center;
             color: var(--vscode-descriptionForeground);
@@ -781,6 +801,7 @@
 
         <div class="input-container">
             <input type="text" id="messageInput" placeholder="Type your message..." />
+            <button id="voiceButton" title="音声入力">🎤</button>
             <button id="sendButton">Send</button>
         </div>
         
@@ -1250,6 +1271,51 @@
 
         // Send message
         document.getElementById('sendButton').addEventListener('click', sendMessage);
+        // 音声入力
+        (function setupVoice() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const voiceBtn = document.getElementById('voiceButton');
+            if (!SpeechRecognition) {
+                voiceBtn.title = '音声入力非対応';
+                voiceBtn.style.opacity = '0.4';
+                return;
+            }
+            const recog = new SpeechRecognition();
+            recog.lang = 'ja-JP';
+            recog.interimResults = false;
+            recog.maxAlternatives = 1;
+            let listening = false;
+            voiceBtn.addEventListener('click', () => {
+                if (listening) {
+                    recog.stop();
+                } else {
+                    recog.start();
+                }
+            });
+            recog.onstart = () => {
+                listening = true;
+                voiceBtn.classList.add('listening');
+                voiceBtn.textContent = '⏹';
+            };
+            recog.onend = () => {
+                listening = false;
+                voiceBtn.classList.remove('listening');
+                voiceBtn.textContent = '🎤';
+            };
+            recog.onresult = (e) => {
+                const text = e.results[0][0].transcript;
+                const inp = document.getElementById('messageInput');
+                inp.value = (inp.value + ' ' + text).trim();
+                inp.focus();
+            };
+            recog.onerror = (e) => {
+                console.error('Speech error:', e.error);
+                voiceBtn.classList.remove('listening');
+                voiceBtn.textContent = '🎤';
+                listening = false;
+            };
+        })();
+
         document.getElementById('messageInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 sendMessage();
