@@ -12,12 +12,9 @@ docs/legal/REVENTLOV_PROJECT.md
 # Business plan (internal only)
 docs/BUSINESS_PLAN_DRAFT.md
 
-# Internal handover documents (session-specific)
-docs/handovers/HANDOVER_*.md
-docs/handovers/DAILY_LOG_*.md
-docs/handovers/PERSONA_MEMORY_UPDATE_*.md
-docs/handovers/conversation_states/*.yaml
-docs/handovers/conversation_*.yaml
+# Internal handover documents (session-specific, personal info)
+docs/handovers/
+docs/resume_kato_masato.html
 
 # persona_context: all session files (local only — contains personal info)
 persona_context/
