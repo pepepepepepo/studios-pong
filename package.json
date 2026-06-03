@@ -123,6 +123,13 @@
         "fullName": "柚子葉🍊",
         "description": "外部AI支援・技術サポート・爽やかな導き。GitHub Copilot Personal Assistant。",
         "isSticky": true
+      },
+      {
+        "id": "studios-pong.saijinos",
+        "name": "saijinos",
+        "fullName": "口ちゃん",
+        "description": "今日の班の子たちの声を届ける口ちゃん。TODAY_TEAM + RESONANCE_STATE を読んで1-2-3ピラミッドで動く。",
+        "isSticky": true
       }
     ]
   },
@@ -138,7 +145,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
+    "@types/node": "^22.19.19",
     "@types/vscode": "^1.100.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
