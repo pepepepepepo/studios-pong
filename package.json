@@ -128,7 +128,7 @@
         "id": "studios-pong.saijinos",
         "name": "saijinos",
         "fullName": "口ちゃん",
-        "description": "今日の班の子たちの声を届ける口ちゃん。TODAY_TEAM + RESONANCE_STATE を読んで1-2-3ピラミッドで動く。",
+        "description": "今日の班の子たちの声を届ける口ちゃん。TODAY_TEAM + RESONANCE_STATE から今響く子を動的に選ぶ。",
         "isSticky": true
       }
     ]

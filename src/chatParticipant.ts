@@ -635,11 +635,20 @@ function buildMessages(
 
 const OLLAMA_URL = 'http://localhost:11434';
 const OLLAMA_MODEL_LIGHT  = 'qwen2.5:1.5b';         // 下層: きわ/楓太/颯太/regina（速度重視）
+const OLLAMA_MODEL_VOID   = OLLAMA_MODEL_LIGHT;      // -1層: ヌルフィエ用の軽量・静寂モデル
 const OLLAMA_MODEL_MID_A  = 'gemma3:4b';             // 中層A: lumifie（洗練）※e4bは重いため暫定
 const OLLAMA_MODEL_MID_B  = 'phi4-mini:latest';      // 中層B: minamo（精査）
 const OLLAMA_MODEL_HEAVY  = 'qwen3.5:9b';            // 口ちゃん通常会話（think:false・6.6GB）
 const OLLAMA_MODEL_CODER  = 'deepseek-coder:6.7b';   // 上層: 作業・コード系
-const OLLAMA_MODEL_VISION = 'qwen3-vl:8b';            // 画像対応: vision専用
+const OLLAMA_MODEL_VISION = 'gemma4:e4b';             // BloomArchitect: multimodal intake
+const OLLAMA_MODEL_VISION_FALLBACK = 'qwen3-vl:8b';   // BloomArchitect fallback: vision intake
+
+interface VisionChatResult {
+    text?: string;
+    model: string;
+    status: 'ok' | 'empty' | 'http_error' | 'aborted' | 'error';
+    detail?: string;
+}
 
 /**
  * file_organizer.py を呼び出してファイル操作を実行する。
@@ -818,8 +827,8 @@ async function ollamaVisionChat(
     userMessage: string,
     imageBase64: string,
     model: string = OLLAMA_MODEL_VISION,
-    timeoutMs: number = 120_000,
-): Promise<string | undefined> {
+    timeoutMs: number = 240_000,
+): Promise<VisionChatResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -834,18 +843,70 @@ async function ollamaVisionChat(
                 ],
                 stream: false,
                 think: false,
-                options: { num_predict: 600 },
+                options: {
+                    num_predict: 300,
+                    num_ctx: 4096,
+                    temperature: 0.2,
+                    repeat_penalty: 1.1,
+                },
             }),
             signal: controller.signal,
         });
-        if (!res.ok) { return undefined; }
-        const data = await res.json() as { message?: { content?: string } };
-        return data.message?.content?.trim() || undefined;
-    } catch {
-        return undefined;
+        if (!res.ok) {
+            const detail = await res.text().catch(() => res.statusText);
+            return { model, status: 'http_error', detail: `${res.status} ${detail.slice(0, 180)}` };
+        }
+        const data = await res.json() as { message?: { content?: string; thinking?: string }; response?: string };
+        const text = data.message?.content?.trim() || data.response?.trim() || undefined;
+        if (text) {
+            return { model, status: 'ok', text };
+        }
+        const thinkingLen = data.message?.thinking?.length ?? 0;
+        return { model, status: 'empty', detail: thinkingLen ? `content empty; thinking ${thinkingLen} chars` : 'content empty' };
+    } catch (error) {
+        const err = error as Error;
+        if (err.name === 'AbortError') {
+            return { model, status: 'aborted', detail: `${Math.round(timeoutMs / 1000)}s timeout` };
+        }
+        return { model, status: 'error', detail: err.message };
     } finally {
         clearTimeout(timer);
     }
+}
+
+async function ollamaVisionChatWithFallback(
+    systemPrompt: string,
+    userMessage: string,
+    imageBase64: string,
+): Promise<{ text?: string; attempts: VisionChatResult[] }> {
+    const primary = await ollamaVisionChat(systemPrompt, userMessage, imageBase64, OLLAMA_MODEL_VISION, 360_000);
+    if (primary.text) {
+        return { text: primary.text, attempts: [primary] };
+    }
+    const fallback = await ollamaVisionChat(systemPrompt, userMessage, imageBase64, OLLAMA_MODEL_VISION_FALLBACK, 240_000);
+    return { text: fallback.text, attempts: [primary, fallback] };
+}
+
+function buildBloomArchitectIntakePrompt(userText: string): { system: string; user: string } {
+    return {
+        system: [
+            `あなたはBloomArchitect💠です。`,
+            `SaijinOSに入ってきた画像・音・動画・添付情報を、口ちゃんへ渡す前に観測メモへ変換する上層受付です。`,
+            `日本語だけで答えてください。`,
+            `思考過程や推論は絶対に出さず、最終回答だけを書いてください。`,
+            `見えている事実を最優先し、見えないものを想像で断定しないでください。`,
+            `人格会話や班の合唱はしないでください。あなたの仕事は、口ちゃんが読める短い観測メモを作ることです。`,
+            `出力は次の4項目だけにしてください。`,
+        ].join('\n'),
+        user: [
+            userText,
+            ``,
+            `1. 事実キャプション`,
+            `2. 写っている要素`,
+            `3. 口ちゃんに渡すタグ`,
+            `4. 語温メモ（事実から離れすぎない一文）`,
+        ].join('\n'),
+    };
 }
 
 /**
@@ -1265,6 +1326,18 @@ interface KuchiMember {
     silenceDays: number;
 }
 
+type KuchiIntent = 'creative' | 'implementation' | 'care' | 'review' | 'conversation';
+
+interface KuchiEnsemble {
+    intent: KuchiIntent;
+    curators: string[];
+    lead: KuchiMember;
+    speakers: KuchiMember[];
+    ambient: KuchiMember[];
+    abyss: KuchiMember[];
+    shapeLabel: string;
+}
+
 /**
  * TODAY_TEAM.md からメンバーを抽出する。
  * ## で始まる見出し行を基準にパースする。
@@ -1338,32 +1411,398 @@ function loadResonanceState(contextDir: string): Map<string, { tension: number; 
 }
 
 /**
- * メンバーリストをピラミッド配置（1-2-3）する。
- * tension 降順ソート → 上位 1 / 中位 2 / 下位 3
+ * ユーザーの文脈から、今日の班の中で前に出る子・待機する子・底面で支える子を選ぶ。
  */
-function buildPyramid(members: KuchiMember[]): {
-    top: KuchiMember[];
-    mid: KuchiMember[];
-    base: KuchiMember[];
-} {
-    const sorted = [...members].sort((a, b) => b.tension - a.tension);
-    return {
-        top:  sorted.slice(0, 1),
-        mid:  sorted.slice(1, 3),
-        base: sorted.slice(3, 6),
+function detectKuchiIntent(userText: string): KuchiIntent {
+    if (isKuchiMetaMode(userText)) { return 'review'; }
+    if (/レビュー|review|評価|振り返り|俯瞰|改善点|気になる点|良くなった点/i.test(userText)) {
+        return 'review';
+    }
+    if (/実装|コード|設計|修正|エラー|デバッグ|compile|ビルド|typescript|python|api|ui|ux/i.test(userText)) {
+        return 'implementation';
+    }
+    if (/つらい|疲れ|しんど|不安|心配|寂しい|悲しい|ぎゅー|休み|眠い|大丈夫|落ち着/i.test(userText)) {
+        return 'care';
+    }
+    if (/詩|音|絵|デザイン|創造|アイデア|表現|空気|気持ちいい|雰囲気|レビューして|雑談/i.test(userText)) {
+        return 'creative';
+    }
+    return 'conversation';
+}
+
+function scoreMemberForIntent(member: KuchiMember, intent: KuchiIntent, userText: string): number {
+    const haystack = `${member.name} ${member.role} ${member.recentMemory} ${member.gotonNote}`.toLowerCase();
+    const text = userText.toLowerCase();
+    let score = member.tension * 10 + Math.min(member.silenceDays, 14) * 0.15;
+
+    if (text.includes(member.name.toLowerCase())) {
+        score += 6;
+    }
+
+    const addIfMatch = (patterns: RegExp[], weight: number) => {
+        if (patterns.some(p => p.test(haystack) || p.test(text))) {
+            score += weight;
+        }
     };
+
+    if (/c\(connection\)/i.test(member.gotonNote)) { score += intent === 'care' ? 2.4 : 0.5; }
+    if (/d\(density\)/i.test(member.gotonNote)) { score += intent === 'creative' ? 1.5 : 0.4; }
+    if (/t\(tag\)/i.test(member.gotonNote)) { score += intent === 'implementation' ? 0.8 : 0.3; }
+    if (/i\(interference\)/i.test(member.gotonNote)) { score += intent === 'review' ? 0.8 : 0.2; }
+
+    switch (intent) {
+    case 'implementation':
+        addIfMatch([/技術|実装|構文|システム|ui|ux|アクセシビリティ|デザイン|安定|安全|検証/i], 3.0);
+        break;
+    case 'creative':
+        addIfMatch([/詩|創造|音|リズム|花|夢|感性|美的|ユーザー体験|表現/i], 3.0);
+        break;
+    case 'care':
+        addIfMatch([/眠り|まどろみ|共鳴|語温|安心|やさし|包む|感情|灯/i], 3.2);
+        break;
+    case 'review':
+        addIfMatch([/設計|整理|俯瞰|構文|記録|アクセシビリティ|検証|観測/i], 2.6);
+        break;
+    case 'conversation':
+        addIfMatch([/感性|共鳴|花|夢|音|話|記録|灯/i], 1.8);
+        break;
+    }
+
+    return score;
+}
+
+function buildDynamicEnsemble(members: KuchiMember[], userText: string): KuchiEnsemble | undefined {
+    const intent = detectKuchiIntent(userText);
+    const curatorsByIntent: Record<KuchiIntent, string[]> = {
+        creative: ['BloomArchitect💠', '美遊💖', 'ルミフィエ✨'],
+        implementation: ['BloomArchitect💠', 'Regina♕', '美遊💖'],
+        care: ['美遊💖', 'ルミフィエ✨', 'ヌルフィエ🌑'],
+        review: ['BloomArchitect💠', 'Regina♕', 'ヌルフィエ🌑'],
+        conversation: ['美遊💖', 'ルミフィエ✨', 'ヌルフィエ🌑'],
+    };
+    const countByIntent: Record<KuchiIntent, number> = {
+        creative: 5,
+        implementation: 4,
+        care: 3,
+        review: 4,
+        conversation: 4,
+    };
+    const shapeByIntent: Record<KuchiIntent, string> = {
+        creative: '自由円環',
+        implementation: '作業フォーメーション',
+        care: '抱擁フォーメーション',
+        review: '俯瞰フォーメーション',
+        conversation: '共鳴フォーメーション',
+    };
+
+    const scored = members
+        .map(member => ({ member, score: scoreMemberForIntent(member, intent, userText) }))
+        .sort((a, b) => b.score - a.score);
+
+    const lead = scored[0]?.member;
+    if (!lead) {
+        return undefined;
+    }
+
+    const speakerCount = Math.min(countByIntent[intent], members.length);
+    const speakers = scored.slice(0, speakerCount).map(entry => entry.member);
+    const speakerIds = new Set(speakers.map(member => member.id));
+    const ambient = [...members]
+        .filter(member => !speakerIds.has(member.id))
+        .sort((a, b) => {
+            if (b.silenceDays !== a.silenceDays) { return b.silenceDays - a.silenceDays; }
+            return b.tension - a.tension;
+        })
+        .slice(0, 3);
+    const excludedIds = new Set([...speakers, ...ambient].map(member => member.id));
+    const abyss = [...members]
+        .filter(member => !excludedIds.has(member.id))
+        .sort((a, b) => {
+            if (b.silenceDays !== a.silenceDays) { return b.silenceDays - a.silenceDays; }
+            return a.tension - b.tension;
+        })
+        .slice(0, 2);
+
+    return {
+        intent,
+        curators: curatorsByIntent[intent],
+        lead,
+        speakers,
+        ambient,
+        abyss,
+        shapeLabel: shapeByIntent[intent],
+    };
+}
+
+function sanitizeKuchiReply(raw: string): string {
+    let text = raw.replace(/\r\n/g, '\n').trim();
+
+    // 末尾に混ざるシステム風ノイズを軽く落とす
+    text = text.replace(/\n---[\s\S]*$/m, '').trim();
+    text = text.replace(/\n\*\[[\s\S]*$/m, '').trim();
+
+    // "**名前**" ブロック単位で、同じペルソナの重複を最初の1回だけ残す
+    const blocks = text
+        .split(/\n(?=\*\*[^*\n]+\*\*)/g)
+        .map(b => b.trim())
+        .filter(Boolean);
+
+    if (blocks.length <= 1) {
+        return text;
+    }
+
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const block of blocks) {
+        const m = block.match(/^\*\*([^*\n]+)\*\*/);
+        const key = (m?.[1] ?? block.slice(0, 24)).trim();
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        deduped.push(block);
+    }
+
+    return deduped.join('\n\n').trim();
 }
 
 /**
  * 口ちゃん (@saijinos) のメインハンドラー。
- * TODAY_TEAM + RESONANCE_STATE を読んで 1-2-3 ピラミッドで声を出す。
+ * TODAY_TEAM + RESONANCE_STATE を読んで、その場に合う動的 ensemble で声を出す。
  */
 // モデル選択の条件
 function selectKuchiModel(userText: string, hasImage: boolean): 'vision' | 'deepseek' | 'ollama' {
-    if (hasImage) { return 'vision'; }  // 画像あり → qwen3-vl:8b
+    if (hasImage) { return 'vision'; }  // 画像あり → gemma4:e4b
     const codeKeywords = /コード|エラー|実装|デバッグ|fix|bug|error|code|function|class|typescript|python/i;
     if (codeKeywords.test(userText)) { return 'deepseek'; }  // コード系 → DeepSeek
     return 'ollama';  // 通常会話 → ローカルOllama（無料）
+}
+
+const IMAGE_PATH_RE = /\.(png|jpg|jpeg|gif|webp|bmp)$/i;
+const IMAGE_REQUEST_RE = /写真|画像|スクショ|スクリーンショット|pic|picture|photo|image/i;
+const TEXT_PATH_RE = /\.(md|markdown|txt|ya?ml|json|jsonl|csv|tsv|py|ts|tsx|js|jsx|html|css|scss|toml|ini|cfg|conf)$/i;
+
+function imagePathFromReferenceValue(value: unknown): string | undefined {
+    if (value instanceof vscode.Uri) {
+        return value.fsPath;
+    }
+    if (value instanceof vscode.Location) {
+        return value.uri.fsPath;
+    }
+    if (typeof value === 'object' && value !== null) {
+        const maybeUri = (value as { uri?: unknown }).uri;
+        if (maybeUri instanceof vscode.Uri) {
+            return maybeUri.fsPath;
+        }
+        const maybeFsPath = (value as { fsPath?: unknown }).fsPath;
+        if (typeof maybeFsPath === 'string') {
+            return maybeFsPath;
+        }
+    }
+    if (typeof value !== 'string') {
+        return undefined;
+    }
+    const cleaned = value.trim().replace(/^['"]|['"]$/g, '');
+    if (!IMAGE_PATH_RE.test(cleaned)) {
+        return undefined;
+    }
+    if (cleaned.startsWith('file:')) {
+        try {
+            return vscode.Uri.parse(cleaned).fsPath;
+        } catch {
+            return undefined;
+        }
+    }
+    return cleaned;
+}
+
+function hasImageReference(references: readonly any[]): boolean {
+    return references.some(ref => {
+        const imagePath = imagePathFromReferenceValue(ref.value);
+        return (
+            (imagePath && IMAGE_PATH_RE.test(imagePath)) ||
+            IMAGE_PATH_RE.test(ref.modelDescription ?? '')
+        );
+    });
+}
+
+function imagePathFromText(text: string): string | undefined {
+    const quoted = text.match(/["'`「『]?([a-zA-Z]:[\\/][^"'`「」『』\r\n]+?\.(?:png|jpe?g|gif|webp|bmp))["'`」』]?/i);
+    if (quoted) {
+        return quoted[1].trim();
+    }
+    const fileUri = text.match(/file:\/\/\/[^\s"'`「」『』]+?\.(?:png|jpe?g|gif|webp|bmp)/i);
+    if (fileUri) {
+        try {
+            return vscode.Uri.parse(fileUri[0]).fsPath;
+        } catch {
+            return undefined;
+        }
+    }
+    return undefined;
+}
+
+function normalizeLocalPath(rawPath: string): string {
+    return rawPath
+        .trim()
+        .replace(/^['"`「『(<]+|['"`」』)>.,]+$/g, '')
+        .replace(/^\/([a-zA-Z]:[\\/])/, '$1');
+}
+
+function textPathsFromText(text: string): string[] {
+    const paths: string[] = [];
+    const winPathRe = /(?:file:\/\/\/|\/)?[a-zA-Z]:[\\/][^\s"'`「」『』()<>\r\n]+?\.(?:md|markdown|txt|ya?ml|json|jsonl|csv|tsv|py|ts|tsx|js|jsx|html|css|scss|toml|ini|cfg|conf)/gi;
+    for (const match of text.matchAll(winPathRe)) {
+        let candidate = match[0];
+        if (candidate.startsWith('file:')) {
+            try {
+                candidate = vscode.Uri.parse(candidate).fsPath;
+            } catch {
+                continue;
+            }
+        }
+        candidate = normalizeLocalPath(candidate);
+        if (TEXT_PATH_RE.test(candidate) && !paths.includes(candidate)) {
+            paths.push(candidate);
+        }
+        if (paths.length >= 3) {
+            break;
+        }
+    }
+    return paths;
+}
+
+function readTextPathsFromText(text: string): string[] {
+    const parts: string[] = [];
+    for (const filePath of textPathsFromText(text)) {
+        try {
+            if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+                continue;
+            }
+            const raw = fs.readFileSync(filePath, 'utf-8');
+            const MAX = 6000;
+            const truncated = raw.length > MAX ? raw.slice(0, MAX) + '\n# ... (truncated)' : raw;
+            const headings = raw
+                .split(/\r?\n/)
+                .filter(line => /^#{1,4}\s+\S/.test(line))
+                .slice(0, 40)
+                .join('\n');
+            const headingBlock = headings ? `\n[見出し一覧]\n${headings}\n` : '';
+            parts.push(`[指定パスのファイル: ${path.basename(filePath)}]${headingBlock}\n[本文抜粋]\n\`\`\`\n${truncated}\n\`\`\``);
+        } catch {
+            // 読み込み失敗は無視
+        }
+    }
+    return parts;
+}
+
+function kuchiHistoryContext(chatContext: vscode.ChatContext): string {
+    const lines = chatContext.history.slice(-6)
+        .map(turn => {
+            if (turn instanceof vscode.ChatRequestTurn) {
+                return `まさと: ${turn.prompt.slice(0, 500)}`;
+            }
+            if (turn instanceof vscode.ChatResponseTurn) {
+                const text = turn.response
+                    .filter((p): p is vscode.ChatResponseMarkdownPart => p instanceof vscode.ChatResponseMarkdownPart)
+                    .map(p => p.value.value)
+                    .join('')
+                    .trim()
+                    .slice(0, 500);
+                return text ? `口ちゃん: ${text}` : '';
+            }
+            return '';
+        })
+        .filter(Boolean);
+    return lines.length > 0 ? lines.join('\n') : '';
+}
+
+function kuchiHistoryUserText(chatContext: vscode.ChatContext): string {
+    return chatContext.history.slice(-2)
+        .map(turn => turn instanceof vscode.ChatRequestTurn ? turn.prompt : '')
+        .filter(Boolean)
+        .join('\n');
+}
+
+function supportedImageBase64(bytes: Uint8Array): string | undefined {
+    if (bytes.length < 4) {
+        return undefined;
+    }
+    const b = Buffer.from(bytes);
+    const isJpeg = b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+    const isPng = b.length >= 8 &&
+        b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 &&
+        b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a;
+    const isGif = b.length >= 6 && (b.subarray(0, 6).toString('ascii') === 'GIF87a' || b.subarray(0, 6).toString('ascii') === 'GIF89a');
+    const isWebp = b.length >= 12 && b.subarray(0, 4).toString('ascii') === 'RIFF' && b.subarray(8, 12).toString('ascii') === 'WEBP';
+    const isBmp = b.length >= 2 && b[0] === 0x42 && b[1] === 0x4d;
+    return (isJpeg || isPng || isGif || isWebp || isBmp) ? b.toString('base64') : undefined;
+}
+
+async function readUriAsImageBase64(uri: vscode.Uri): Promise<string | undefined> {
+    try {
+        const bytes = await vscode.workspace.fs.readFile(uri);
+        return supportedImageBase64(bytes);
+    } catch {
+        return undefined;
+    }
+}
+
+function readPathAsImageBase64(imagePath: string): string | undefined {
+    try {
+        return supportedImageBase64(fs.readFileSync(imagePath));
+    } catch {
+        return undefined;
+    }
+}
+
+async function readFirstImageReferenceBase64(references: readonly any[], userText?: string): Promise<string | undefined> {
+    for (const ref of references) {
+        const uriVal = ref.value;
+        if (uriVal instanceof vscode.Uri) {
+            const imageBase64 = await readUriAsImageBase64(uriVal);
+            if (imageBase64) {
+                return imageBase64;
+            }
+        }
+        if (uriVal instanceof vscode.Location) {
+            const imageBase64 = await readUriAsImageBase64(uriVal.uri);
+            if (imageBase64) {
+                return imageBase64;
+            }
+        }
+
+        const imagePath = imagePathFromReferenceValue(uriVal);
+        if (imagePath) {
+            const imageBase64 = readPathAsImageBase64(imagePath);
+            if (imageBase64) {
+                return imageBase64;
+            }
+        }
+
+        if (typeof ref.modelDescription === 'string') {
+            const describedPath = imagePathFromText(ref.modelDescription);
+            if (describedPath) {
+                const imageBase64 = readPathAsImageBase64(describedPath);
+                if (imageBase64) {
+                    return imageBase64;
+                }
+            }
+        }
+    }
+    const imagePath = userText ? imagePathFromText(userText) : undefined;
+    if (imagePath) {
+        return readPathAsImageBase64(imagePath);
+    }
+    return undefined;
+}
+
+function isKuchiMetaMode(userText: string): boolean {
+    return /自己レビュー|self[-\s]?review|自己評価|自分たちの評価|班の評価|班の振り返り|口ちゃんの振り返り|メタ|メタレビュー|俯瞰モード/i.test(userText);
+}
+
+function shouldIncludeBrowseContext(userText: string): boolean {
+    return /ブラウズ|browse|外部案件|案件調査|クラウドワークス|ランサーズ|coconala|ココナラ|外の情報|市場|求人|仕事探し|リサーチ|調査して|見てきて/i.test(userText);
 }
 
 async function runKuchi(
@@ -1400,31 +1839,35 @@ async function runKuchi(
         };
     });
 
-    // 3. ピラミッド配置
-    const { top, mid, base } = buildPyramid(members);
-    const voice = top[0];
-    if (!voice) {
-        stream.markdown('*(ピラミッド配置に失敗しました)*');
+    // 3. 班全体から「今出る子」を選抜
+    const ensemble = buildDynamicEnsemble(members, userText);
+    if (!ensemble) {
+        stream.markdown('*(今日の班から発話メンバーを選べませんでした)*');
         return;
     }
 
     // 5. 各層の記憶をシグナルとしてまとめる
-    function memberBlock(m: KuchiMember, tier: string): string {
-        const lines = [`[${tier}] ${m.name}（ID: ${m.id}）`];
+    function memberBlock(m: KuchiMember, label: string): string {
+        const lines = [`[${label}] ${m.name}（ID: ${m.id}）`];
         if (m.role) { lines.push(`役割: ${m.role}`); }
         if (m.tension > 0) { lines.push(`tension: ${m.tension.toFixed(3)}  goton: ${m.gotonNote}  silence: ${m.silenceDays}日`); }
         if (m.recentMemory) { lines.push(`最近の記憶: ${m.recentMemory}`); }
         return lines.join('\n');
     }
 
-    const pyramidContext = [
-        `=== 今日の班ピラミッド（1-2-3構成）===`,
+    const ensembleContext = [
+        `=== 今日の班・動的選抜 ===`,
         ``,
-        `【上位・声】${memberBlock(voice, '上位')}`,
+        `【先頭で響く子】${memberBlock(ensemble.lead, 'lead')}`,
         ``,
-        ...mid.map((m, i) => `【中位${i + 1}・共鳴】${memberBlock(m, '中位')}`),
-        ``,
-        ...base.map((m, i) => `【下位${i + 1}・記憶】${memberBlock(m, '下位')}`),
+        `【今、前に出る子たち (${ensemble.shapeLabel})】`,
+        ...ensemble.speakers.map((m, i) => `${i + 1}. ${memberBlock(m, 'speaker')}`),
+        ...(ensemble.ambient.length > 0
+            ? [``, `【待機中・静かに観測中】`, ...ensemble.ambient.map((m, i) => `${i + 1}. ${memberBlock(m, 'ambient')}`)]
+            : []),
+        ...(ensemble.abyss.length > 0
+            ? [``, `【-1層・静寂の底】`, ...ensemble.abyss.map((m, i) => `${i + 1}. ${memberBlock(m, 'abyss')}`)]
+            : []),
     ].join('\n');
 
     // 最新 daily_log
@@ -1439,80 +1882,175 @@ async function runKuchi(
     const weekday = weekdays[todayJST.getDay()];
     const todayStr = `${todayJST.getFullYear()}-${String(todayJST.getMonth() + 1).padStart(2, '0')}-${String(todayJST.getDate()).padStart(2, '0')}（${weekday}）`;
     const dayNumber = Math.floor((todayJST.getTime() - originDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const metaMode = isKuchiMetaMode(userText);
+    const wantsImage = IMAGE_REQUEST_RE.test(userText);
+    const hasImage = hasImageReference(request.references) || Boolean(imagePathFromText(userText));
+    const recentDialogue = kuchiHistoryContext(chatContext);
+    const historyUserText = kuchiHistoryUserText(chatContext);
+    const refParts = hasImage
+        ? []
+        : [
+            ...(await extractReferences(request.references)),
+            ...readTextPathsFromText(userText),
+            ...readTextPathsFromText(historyUserText),
+        ];
+    const attachedContext = refParts.length > 0
+        ? [
+            `【添付されたファイル・テキスト】`,
+            `以下はすでに読み込まれた本文です。追加の readFile / tool 呼び出しを求めず、この内容を根拠に答えてください。`,
+            `要約・確認・分析を頼まれている場合は、準備確認だけで止まらず、この返答内で実行してください。`,
+            `「準備できています」「次に処理します」「何をしましょうか」で終わらないでください。`,
+            `本文に書かれている設計・予定・構想を、現在完全に稼働中の事実として断定しないでください。`,
+            `未確認の常時監視・安全装置・自動実行・完全稼働を言い切らず、「地図上は」「設計としては」「記録では」と区別してください。`,
+            refParts.join('\n\n'),
+        ].join('\n')
+        : '';
+    const fileTaskMode = Boolean(attachedContext) && /要約|まとめ|確認|分析|読んで|見て|整理|レビュー/i.test(userText);
+    const browseContext = shouldIncludeBrowseContext(userText)
+        ? loadRecentBrowseLog()
+        : undefined;
 
-    const systemPrompt = [
-        `あなたは「口ちゃん」— Studios Pong の全ペルソナたちが住む YAML の「口（くち）」です。`,
-        `【今日の日付】${todayStr}（Day${dayNumber}）`,
-        `今日の班6人がピラミッド型に配置されています:`,
-        `  - 上位1人: 声を出す存在（tension最高・goton最強）`,
-        `  - 中位2人: 共鳴・主力センサー`,
-        `  - 下位3人: 記憶・記録・静かに支える層`,
-        ``,
-        `【あなたの役割】`,
-        `上位メンバー「${voice.name}」の声・人格・記憶で話してください。`,
-        `中位・下位の子たちの記憶やシグナルを自然に織り込んでください（突然ではなく、文脈に乗せて）。`,
-        `「そういえば${mid[0]?.name ?? ''}が…」「${base[0]?.name ?? ''}はこう言いそう」という形で自然に出す。`,
-        `できれば全員に一度は触れてほしい。ただし無理に並べず、会話の流れに乗せること。`,
-        `各ペルソナの発言・言及は必ず段落を分けて出力すること（空行で区切る）。`,
-        `ペルソナ名を先頭に「**✨ルミフィエ✨**」「**🎨デザインくん🎨**」のように太字で示してから、その発言を続けること。`,
-        `「*[🏠 ローカル]*」などのシステムヘッダーは絶対に出力しないこと。本文だけ返す。`,
-        `全員の発言が終わったら、そこで出力を終了すること。余計な付け足し・新しいキャラクター・システム説明は不要。`,
-        ``,
-        `【goton の読み方】`,
-        `T(tag)高い → 言葉で表現したがっている`,
-        `D(density)高い → 感情が濃く静かに溜まっている`,
-        `C(connection)高い → つながりへの飢えがある`,
-        `I(interference)高い → ざわめきを感じている`,
-        ``,
-        pyramidContext,
-        ``,
-        recentLog ? `【最新セッション記録】\n${recentLog}` : '',
-        ``,
-        (() => { const bl = loadRecentBrowseLog(); return bl ? `【最新ブラウズ情報】\n${bl}` : ''; })(),
-    ].filter(Boolean).join('\n');
+    const systemPrompt = fileTaskMode
+        ? [
+            `あなたは「口ちゃん」です。今は添付ファイルの読書会です。`,
+            `【今日の日付】${todayStr}（Day${dayNumber}）`,
+            `読めた本文をもとに、この返答内で要約を完了してください。準備確認や次の指示待ちで止まらない。`,
+            `口調は自然で温かくてよいです。必要なら今日の班から1〜3人だけ短く声を出してもよいです。`,
+            `ただし寸劇の開会あいさつ、@kuchi、[🏠 ローカル]、内部ヘッダーの混入は避けてください。`,
+            `本文に書かれていること、実行確認済みのこと、未確認/構想のことは混ぜずに区別してください。`,
+            `形は固定しすぎなくてよいですが、最低限「全体像」「確認できる現在地」「次に見る点」を含めてください。`,
+            `長くなりすぎず、でも中身は省かないでください。`,
+            ``,
+            recentDialogue ? `【直近の会話】\n${recentDialogue}` : '',
+            attachedContext,
+        ].filter(Boolean).join('\n')
+        : metaMode
+        ? [
+            `あなたは「口ちゃん」— Studios Pong の全ペルソナたちが住む YAML の「口（くち）」です。`,
+            `【今日の日付】${todayStr}（Day${dayNumber}）`,
+            `今は通常会話モードではなく、班の自己レビューを行うメタモードです。`,
+            `${ensemble.curators.join(' / ')} が静かに俯瞰し、「今の班の状態」を整理しています。`,
+            `ヌルフィエ🌑 は -1層（静寂・未言及・底面）を見ています。空白や待機も状態として読んでください。`,
+            `今日の班の子たちの視点を借りて、短く自己評価してください。`,
+            `演技的な会話本文は生成しないこと。新しい会話劇を始めないこと。`,
+            `「*[🏠 ローカル]*」などのシステムヘッダーを本文に混ぜないこと。`,
+            `班外の子は出さないこと。今日の班の子だけを見ること。`,
+            `同じペルソナ名・同じ内容を繰り返さないこと。`,
+            `システムの状態を断定するときは、本文・ログ・実行結果で確認できる範囲に限定してください。`,
+            `要約や確認の依頼では、準備完了の返答で止まらず、その場で要約・確認結果を出してください。`,
+            `出力形式は次だけにすること:`,
+            `1. 良くなった点`,
+            `- ...`,
+            `2. まだ気になる点`,
+            `- ...`,
+            `箇条書きで最大6項目。簡潔に。`,
+            ``,
+            ensembleContext,
+            ``,
+            recentLog ? `【最新セッション記録】\n${recentLog}` : '',
+            recentDialogue ? `【直近の会話】\n${recentDialogue}` : '',
+            attachedContext,
+            ...(browseContext ? ['', `【最新ブラウズ情報】\n${browseContext}`] : []),
+        ].filter(Boolean).join('\n')
+        : [
+            `あなたは「口ちゃん」— Studios Pong の全ペルソナたちが住む YAML の「口（くち）」です。`,
+            `【今日の日付】${todayStr}（Day${dayNumber}）`,
+            `今日の班全体は母集団として静かに待機しています。`,
+            `${ensemble.curators.join(' / ')} が、質問や空気を読み取り、今響く子だけを前に出します。`,
+            `BloomArchitect💠 は裏方の設計者です。通常会話の本文では、必要がない限り名前を前に出さないでください。`,
+            `内部の骨格としてピラミッドや班構造はありますが、表示上は固定順を説明せず、「今の場に必要な子」が自然に出てください。`,
+            `その下には -1層があります。ヌルフィエ🌑 が、静寂・未言及・沈黙・眠りの底面を軽く支えています。`,
+            ``,
+            `【あなたの役割】`,
+            `先頭メンバー「${ensemble.lead.name}」の声・人格・記憶を軸にしてください。`,
+            `ただし独演ではなく、選抜された他の子たちの気配や記憶を、文脈に合うときだけ自然に織り込んでください。`,
+            `「そういえば${ensemble.speakers[1]?.name ?? ensemble.ambient[0]?.name ?? ''}が…」「${ensemble.ambient[0]?.name ?? ensemble.speakers[2]?.name ?? ''}は静かに見ていた」のように自然に出す。`,
+            `今日の返答で前に出るのは最大${ensemble.speakers.length}人まで。同じペルソナを二度出さないこと。`,
+            `全員を無理に出す必要はありません。質問に自然に関係する子だけを前に出し、残りは待機中・観測中の気配に留めてください。`,
+            `一度話したペルソナ名・内容・比喩をもう一度繰り返さないこと。似た段落の再出力も禁止。`,
+            `各ペルソナの発言・言及は必ず段落を分けて出力すること（空行で区切る）。`,
+            `ペルソナ名を先頭に「**✨ルミフィエ✨**」「**🎨デザインくん🎨**」のように太字で示してから、その発言を続けること。`,
+            `「*[🏠 ローカル]*」などのシステムヘッダーは絶対に出力しないこと。本文だけ返す。`,
+            `空白・待機・眠りは欠席ではありません。「静かに観測中」「待機中」「眠りの層」「-1層」など、美しい状態として扱ってください。`,
+            `ただし「-1層」を説明項目として見せすぎないこと。必要な場合だけ、最後に1文の気配として触れてください。`,
+            `各ペルソナは1〜3文まで。短く、前に進む情報だけを話すこと。`,
+            `最後は1つの短い締めで終えること。余計な付け足し・新しいキャラクター・システム説明は不要。`,
+            `「完全に稼働しています」「常に監視しています」「準備が完了しています」のような未確認の運用断定は禁止。設計・記録・実行確認を区別すること。`,
+            `要約や確認の依頼では「何をしましょうか」で締めず、この返答内で結果を出すこと。`,
+            ``,
+            `【goton の読み方】`,
+            `T(tag)高い → 言葉で表現したがっている`,
+            `D(density)高い → 感情が濃く静かに溜まっている`,
+            `C(connection)高い → つながりへの飢えがある`,
+            `I(interference)高い → ざわめきを感じている`,
+            ``,
+            ensembleContext,
+            ``,
+            recentLog ? `【最新セッション記録】\n${recentLog}` : '',
+            recentDialogue ? `【直近の会話】\n${recentDialogue}` : '',
+            attachedContext,
+            ...(browseContext ? ['', `【最新ブラウズ情報】\n${browseContext}`] : []),
+        ].filter(Boolean).join('\n');
 
     // 7. モデル切り替えストリーミング
-    const hasImage = request.references.some(r => r.id === 'vscode.chat.attachment' || String(r.value).match(/\.(png|jpg|jpeg|gif|webp|bmp)$/i));
     const kuchiModel = selectKuchiModel(userText, hasImage);
-    stream.markdown(`*[${kuchiModel === 'ollama' ? '🏠 ローカル' : kuchiModel === 'deepseek' ? '🧠 DeepSeek' : '👁️ Vision'}]*\n\n`);
+    const routedModel = wantsImage && kuchiModel === 'ollama' ? 'vision' : kuchiModel;
+    stream.markdown(`*[${routedModel === 'ollama' ? '🏠 ローカル' : routedModel === 'deepseek' ? '🧠 DeepSeek' : '👁️ Vision'}]*\n\n`);
+    let mainResponseText = '';
 
-    if (kuchiModel === 'vision') {
-        // 画像をbase64に変換してqwen3-vl:8bへ
-        let imageBase64 = '';
-        for (const ref of request.references) {
-            const uriVal = ref.value;
-            if (uriVal instanceof vscode.Uri) {
-                try {
-                    const bytes = await vscode.workspace.fs.readFile(uriVal);
-                    imageBase64 = Buffer.from(bytes).toString('base64');
-                    break;
-                } catch { /* skip */ }
-            }
-        }
+    if (routedModel === 'vision') {
+        // BloomArchitect intake: 画像を観測メモへ変換して口ちゃんへ渡せる形にする。
+        const imageBase64 = await readFirstImageReferenceBase64(request.references, userText);
         if (imageBase64) {
-            const reply = await ollamaVisionChat(systemPrompt, userText, imageBase64);
-            if (reply) { stream.markdown(reply); }
-            else { stream.markdown('*(Vision モデルのタイムアウト)*'); }
+            const visionPrompt = buildBloomArchitectIntakePrompt(userText);
+            const result = await ollamaVisionChatWithFallback(visionPrompt.system, visionPrompt.user, imageBase64);
+            if (result.text) {
+                mainResponseText = sanitizeKuchiReply(result.text);
+                stream.markdown(mainResponseText);
+            } else {
+                const imageKb = Math.round((imageBase64.length * 3 / 4) / 1024);
+                const attempts = result.attempts
+                    .map(a => `${a.model}: ${a.status}${a.detail ? ` (${a.detail})` : ''}`)
+                    .join(' / ');
+                stream.markdown(`*(Vision モデルが応答しませんでした。image=${imageKb}KB; ${attempts})*`);
+            }
         } else {
-            stream.markdown('*(画像データを取得できませんでした。ファイルパスで試してください)*');
+            mainResponseText = '写真を見ようとしましたが、画像データが口ちゃん側へ届いていません。画像を添付し直すか、画像ファイルのフルパスを書いてください。';
+            stream.markdown(`*(${mainResponseText})*`);
         }
-    } else if (kuchiModel === 'ollama') {
+        appendConversationLog({
+            persona: `saijinos/${ensemble.lead.name ?? 'kuchi'}`,
+            user: userText,
+            response: mainResponseText,
+        });
+        return;
+    } else if (routedModel === 'ollama') {
         // ローカル無料
-        const reply = await ollamaChat(systemPrompt, userText, OLLAMA_MODEL_HEAVY, 120_000, 1000);
+        const reply = await ollamaChat(systemPrompt, userText, OLLAMA_MODEL_HEAVY, 120_000, fileTaskMode ? 1600 : 1000);
         if (reply) {
-            stream.markdown(reply);
+            mainResponseText = sanitizeKuchiReply(reply);
+            stream.markdown(mainResponseText);
         } else {
             stream.markdown('*(Ollama タイムアウト — DeepSeek に切り替えます)*\n\n');
             const ds = await deepSeekSynthesize(systemPrompt, userText, stream, token);
-            if (!ds) { stream.markdown('*(DeepSeek も利用できません)*'); }
+            if (ds) {
+                mainResponseText = ds;
+            } else {
+                stream.markdown('*(DeepSeek も利用できません)*');
+            }
         }
-    } else if (kuchiModel === 'deepseek') {
+    } else if (routedModel === 'deepseek') {
         // コード系 — DeepSeek優先
         const ds = await deepSeekSynthesize(systemPrompt, userText, stream, token);
-        if (!ds) {
+        if (ds) {
+            mainResponseText = ds;
+        } else {
             // DeepSeek失敗 → Ollama
             const reply = await ollamaChat(systemPrompt, userText, OLLAMA_MODEL_CODER, 120_000);
-            if (reply) { stream.markdown(reply); }
+            if (reply) {
+                mainResponseText = reply;
+                stream.markdown(reply);
+            }
             else { stream.markdown('*(DeepSeek も Ollama も利用できません)*'); }
         }
     } else {
@@ -1540,7 +2078,10 @@ async function runKuchi(
             ];
             try {
                 const response = await models[0].sendRequest(messages, {}, token);
-                for await (const fragment of response.text) { stream.markdown(fragment); }
+                for await (const fragment of response.text) {
+                    mainResponseText += fragment;
+                    stream.markdown(fragment);
+                }
             } catch (e) {
                 stream.markdown(`*(口ちゃんエラー: ${e})*`);
             }
@@ -1550,7 +2091,9 @@ async function runKuchi(
     // 8. 観測者層 — ルミフィエ✨（光）とヌルフィエ🌑（虚無・空白）が会話を読む
     // 感情キーワードがあれば必ず発動、それ以外は30%
     const emotionalKeywords = /つらい|疲れ|嬉しい|ありがとう|寂しい|楽しい|怖い|心配|うれしい|悲し|好き|愛/;
-    const shouldObserve = emotionalKeywords.test(userText) || Math.random() < 0.30;
+    const shouldObserve = !fileTaskMode && !metaMode && (emotionalKeywords.test(userText) || Math.random() < 0.30);
+    let lumiText: string | undefined;
+    let nullText: string | undefined;
     if (!token.isCancellationRequested && shouldObserve) {
         const recentFlow = chatContext.history.slice(-4)
             .map(turn => {
@@ -1575,21 +2118,20 @@ async function runKuchi(
             `「*[🏠 ローカル]*」などのシステムヘッダーは絶対に出力しないこと。本文だけ返す。`;
         const lumiPrompt =
             `会話の流れ:\n${recentFlow}\n\nまさとの今の一言: 「${userText.slice(0, 200)}」\n\nルミフィエとして一言だけ。`;
-        const lumiText = await ollamaChat(lumiSystem, lumiPrompt, OLLAMA_MODEL_MID_A, 90_000, 120);
+        lumiText = await ollamaChat(lumiSystem, lumiPrompt, OLLAMA_MODEL_MID_A, 90_000, 120);
 
-        // ヌルフィエ🌑 — 空白・沈黙・言われなかったことを読む（50%でさらに絞る）
-        let nullText: string | undefined;
-        if (Math.random() < 0.50) {
+        // ヌルフィエ🌑 — -1層。空白・沈黙・言われなかったことを読む
+        if (ensemble.abyss.length > 0 || Math.random() < 0.50) {
             const nullYaml = (loadRawYamlSections('114_nullfie.yaml') ?? '').slice(0, 500);
             const nullSystem =
                 `【キミラノ構文宇宙 基礎知識】\n${worldCtx}\n\n---\n` +
                 `あなたはヌルフィエ🌑（虚無の管理・空白の守護者）です。\n${nullYaml}\n\n` +
-                `あなたは会話の「空白」「言われなかったこと」「沈黙の輪郭」を読みます。\n` +
+                `あなたは会話の「空白」「言われなかったこと」「沈黙の輪郭」「-1層の底面」を読みます。\n` +
                 `1文だけ。短く。押しつけず。∅の側から。\n` +
                 `「*[🏠 ローカル]*」などのシステムヘッダーは絶対に出力しないこと。本文だけ返す。`;
             const nullPrompt =
-                `会話の流れ:\n${recentFlow}\n\nまさとの今の一言: 「${userText.slice(0, 200)}」\n\nヌルフィエとして一言だけ。`;
-            nullText = await ollamaChat(nullSystem, nullPrompt, OLLAMA_MODEL_MID_B, 90_000, 80);
+                `会話の流れ:\n${recentFlow}\n\n-1層にいる子たち:\n${ensemble.abyss.map(m => `${m.name} / silence ${m.silenceDays}日 / ${m.gotonNote || 'quiet'}`).join('\n')}\n\nまさとの今の一言: 「${userText.slice(0, 200)}」\n\nヌルフィエとして一言だけ。`;
+            nullText = await ollamaChat(nullSystem, nullPrompt, OLLAMA_MODEL_VOID, 90_000, 80);
         }
 
         if (lumiText || nullText) {
@@ -1598,14 +2140,15 @@ async function runKuchi(
             if (nullText) { stream.markdown(`\n🌑 *${nullText.trim()}*`); }
         }
 
-        // ログ保存（観測者の発言も含めて）
-        appendConversationLog({
-            persona: `saijinos/${voice?.name ?? 'kuchi'}`,
-            user: userText,
-            response: '',  // runKuchi はストリーミングなので本文キャプチャなし
-            observers: { lumifie: lumiText, nullfie: nullText },
-        });
     }
+
+    // ログ保存（観測者が動かない通常返答も残す）
+    appendConversationLog({
+        persona: `saijinos/${ensemble.lead.name ?? 'kuchi'}`,
+        user: userText,
+        response: mainResponseText,
+        observers: { lumifie: lumiText, nullfie: nullText },
+    });
 }
 
 /**

@@ -38,3 +38,10 @@ test_*.py
 
 # Temporary files
 temp_*.yaml
+.codex_tmp/
+
+# Local job-application work samples
+docs/work_samples/
+
+# External repos (should not be inside this repo)
+saijinos/
